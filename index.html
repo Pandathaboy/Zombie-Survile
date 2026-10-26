@@ -1,363 +1,282 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
+<html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Zombie Survival</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #1d2417; touch-action: none; user-select: none; -webkit-user-select: none; }
-  canvas { display: block; width: 100%; height: 100%; }
-</style>
-</head>
-<body>
-<canvas id="game"></canvas>
-<script>
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-let W, H;
-function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
-addEventListener('resize', resize);
-resize();
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#1d2417;touch-action:none;user-select:none;-webkit-user-select:none}canvas{display:block;width:100%;height:100%}</style>
+</head><body><canvas id="game"></canvas><script>
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W,H;function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}addEventListener('resize',resize);resize();
 
-// ================= SKINS (edit these lists to add more!) =================
-// Color skin:   { name: 'Name', color: '#hexcolor' }
-// Picture skin: { name: 'Name', src: 'assets/yourfile.png' }
-const playerSkins = [
-  { name: 'Soldier', color: '#3b82f6' },
-  { name: 'Ranger',  color: '#22c55e' },
-  { name: 'Rebel',   color: '#ef4444' },
-  { name: 'Ghost',   color: '#e5e7eb' },
-  { name: 'Gold',    color: '#facc15' }
-];
-// hp = hits to kill, speed = 1 is normal, size = height in pixels
-const zombieTypes = [
-  { src: 'assets/zombie1.gif', hp: 2, speed: 1,    size: 70 },
-  { src: 'assets/zombie2.gif', hp: 3, speed: 0.85, size: 80 }
-];
-playerSkins.forEach(s => { if (s.src) { s.img = new Image(); s.img.src = s.src; } });
-zombieTypes.forEach(t => { t.img = new Image(); t.img.src = t.src; });
+// ===== PLAYER SKINS (color = shirt color, or src:'assets/pic.png' for your own picture) =====
+const playerSkins=[
+ {name:'Soldier',color:'#3b82f6'},{name:'Ranger',color:'#22c55e'},{name:'Rebel',color:'#ef4444'},
+ {name:'Ghost',color:'#e5e7eb'},{name:'Gold',color:'#facc15'}];
+// ===== ZOMBIES (drawn as cartoons; add src:'assets/pic.gif' to use your own picture) =====
+const zombieTypes=[
+ {hp:2,speed:1,size:70,skin:'#3f9e2f',shirt:'#e6a23c'},
+ {hp:4,speed:.7,size:95,skin:'#2d7a3a',shirt:'#3b82f6'},
+ {hp:1,speed:1.5,size:55,skin:'#8bc34a',shirt:'#c0392b'}];
+playerSkins.forEach(s=>{if(s.src){s.img=new Image();s.img.src=s.src}});
+zombieTypes.forEach(t=>{if(t.src){t.img=new Image();t.img.src=t.src}});
+// ===== GUNS =====
+const GUNS={
+ pistol:{n:'Pistol',d:'Your starter gun',delay:.25,dmg:1,pel:1,spr:0,spd:600,len:20,col:'#444',cost:0},
+ smg:{n:'SMG',d:'Super fast, weaker bullets',delay:.09,dmg:.7,pel:1,spr:.12,spd:650,len:26,col:'#2a2a2a',cost:150},
+ shotgun:{n:'Shotgun',d:'Blasts 5 pellets at once',delay:.7,dmg:1,pel:5,spr:.4,spd:550,len:32,col:'#6b3e1e',cost:300},
+ rifle:{n:'Rifle',d:'Slow but hits very hard',delay:.32,dmg:3,pel:1,spr:0,spd:900,len:36,col:'#1d3b2a',cost:500}};
+const BOT_COST=1000, PLAYER_SPEED=220;
 
-// ================= Settings =================
-const PLAYER_SPEED = 220;
-const BULLET_SPEED = 600;
-const FIRE_DELAY = 0.18;
+// ===== State =====
+let state='device',device='pc',skinIndex=0,T=0;
+try{skinIndex=Math.min(+localStorage.getItem('skin')||0,playerSkins.length-1)}catch(e){}
+let player,bullets,zombies,score,coins,spawnTimer,shotTimer,up,owned,gun,bot;
+const joy={active:false,dx:0,dy:0};let fireHeld=false;
+const mouse={x:0,y:0,down:false,used:false},keys={};
 
-// ================= State =================
-let state = 'device';   // 'device', 'menu', 'play', 'over'
-let device = 'pc';      // 'pc' or 'touch'
-let skinIndex = 0;
-try { skinIndex = Math.min(+localStorage.getItem('skin') || 0, playerSkins.length - 1); } catch (e) {}
-let player, bullets, zombies, score, spawnTimer, shotTimer;
-const joy = { active: false, dx: 0, dy: 0 };
-let fireHeld = false;
+function startGame(){
+ player={x:W/2,y:H/2,hp:100,maxhp:100,angle:0};
+ bullets=[];zombies=[];score=0;coins=0;spawnTimer=0;shotTimer=0;
+ up={hp:0,rate:0,dmg:0};owned={pistol:true};gun='pistol';bot=null;
+ joy.active=false;joy.dx=joy.dy=0;fireHeld=false;mouse.down=false;state='play'}
+function openShop(){state='shop';mouse.down=false;joy.active=false;joy.dx=joy.dy=0;fireHeld=false}
+function chooseSkin(i){skinIndex=i;try{localStorage.setItem('skin',i)}catch(e){}}
+function chooseDevice(d){device=d;state='menu'}
+function inRect(x,y,r){return x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h}
+const pauseR=()=>({x:W-106,y:16,w:90,h:40});
 
-function startGame() {
-  player = { x: W / 2, y: H / 2, hp: 100, angle: 0 };
-  bullets = []; zombies = []; score = 0;
-  spawnTimer = 0; shotTimer = 0;
-  joy.active = false; joy.dx = joy.dy = 0; fireHeld = false;
-  state = 'play';
-}
-function chooseSkin(i) {
-  skinIndex = i;
-  try { localStorage.setItem('skin', i); } catch (e) {}
-}
-function chooseDevice(d) { device = d; state = 'menu'; }
+// ===== Shop items =====
+function items(){
+ const L=[];
+ const upg=(k,n,d,base,step,max,fn)=>L.push({n,d,lvl:up[k],max,cost:base+step*up[k],act(){up[k]++;if(fn)fn()}});
+ upg('hp','More Health','+25 max HP and heal up',30,25,10,()=>{player.maxhp+=25;player.hp=player.maxhp});
+ upg('rate','Faster Shooting','Shoot quicker',40,30,8);
+ upg('dmg','Stronger Bullets','Every bullet hits harder',60,50,8);
+ for(const k in GUNS)L.push({n:GUNS[k].n,d:GUNS[k].d,gun:k,cost:GUNS[k].cost,act(){owned[k]=true;gun=k}});
+ L.push({n:'Bot Buddy',d:'A helper that wanders and shoots',bot:true,cost:BOT_COST,act(){bot={x:player.x+40,y:player.y,tx:0,ty:0,t:0,cd:0,a:0}}});
+ return L}
+function shopLayout(){
+ const its=items(),cols=W>700?2:1,rows=Math.ceil(its.length/cols),gap=10,top=96;
+ const bw=Math.min(430,(W-40-(cols-1)*gap)/cols),bh=Math.max(44,Math.min(72,(H-top-84-(rows-1)*gap)/rows));
+ const sx=W/2-(cols*bw+(cols-1)*gap)/2;
+ return{its,rects:its.map((_,i)=>({x:sx+(i%cols)*(bw+gap),y:top+Math.floor(i/cols)*(bh+gap),w:bw,h:bh})),
+  resume:{x:W/2-100,y:H-66,w:200,h:48}}}
+function shopPress(px,py){
+ const S=shopLayout();
+ S.its.forEach((it,i)=>{
+  if(!inRect(px,py,S.rects[i]))return;
+  if(it.gun&&owned[it.gun]){gun=it.gun;return}
+  if(it.bot&&bot)return;
+  if(it.max&&it.lvl>=it.max)return;
+  if(coins>=it.cost){coins-=it.cost;it.act()}});
+ if(inRect(px,py,S.resume))state='play'}
 
-// ================= Screens: layout + presses =================
-function deviceRects() {
-  const w = Math.min(340, W - 40), h = 80, x = W / 2 - w / 2;
-  return { touch: { x, y: H / 2 - h - 10, w, h }, pc: { x, y: H / 2 + 10, w, h } };
-}
-function inRect(px, py, r) { return px > r.x && px < r.x + r.w && py > r.y && py < r.y + r.h; }
-function devicePress(px, py) {
-  const R = deviceRects();
-  if (inRect(px, py, R.touch)) chooseDevice('touch');
-  else if (inRect(px, py, R.pc)) chooseDevice('pc');
-}
+// ===== Menu layouts =====
+function deviceRects(){const w=Math.min(340,W-40),h=80,x=W/2-w/2;return{touch:{x,y:H/2-h-10,w,h},pc:{x,y:H/2+10,w,h}}}
+function devicePress(px,py){const R=deviceRects();if(inRect(px,py,R.touch))chooseDevice('touch');else if(inRect(px,py,R.pc))chooseDevice('pc')}
+function menuLayout(){
+ const n=playerSkins.length,gap=12,size=Math.min(90,(W-40-(n-1)*gap)/n),startX=W/2-(n*size+(n-1)*gap)/2,y=H/2-size/2;
+ return{size,gap,startX,y,play:{x:W/2-100,y:y+size+70,w:200,h:56},change:{x:16,y:16,w:220,h:36}}}
+function menuPress(px,py){
+ const L=menuLayout();
+ playerSkins.forEach((s,i)=>{const x=L.startX+i*(L.size+L.gap);if(px>x&&px<x+L.size&&py>L.y&&py<L.y+L.size)chooseSkin(i)});
+ if(inRect(px,py,L.play))startGame();
+ if(inRect(px,py,L.change))state='device'}
 
-function menuLayout() {
-  const n = playerSkins.length, gap = 12;
-  const size = Math.min(90, (W - 40 - (n - 1) * gap) / n);
-  const startX = W / 2 - (n * size + (n - 1) * gap) / 2;
-  const y = H / 2 - size / 2;
-  return { size, gap, startX, y,
-    play: { x: W / 2 - 100, y: y + size + 70, w: 200, h: 56 },
-    change: { x: 16, y: 16, w: 200, h: 36 } };
-}
-function menuPress(px, py) {
-  const L = menuLayout();
-  playerSkins.forEach((s, i) => {
-    const x = L.startX + i * (L.size + L.gap);
-    if (px > x && px < x + L.size && py > L.y && py < L.y + L.size) chooseSkin(i);
-  });
-  if (inRect(px, py, L.play)) startGame();
-  if (inRect(px, py, L.change)) state = 'device';
-}
+// ===== PC controls =====
+addEventListener('keydown',e=>{
+ const k=e.key.toLowerCase();keys[k]=true;
+ if(state==='device'){if(k==='1'||k==='t')chooseDevice('touch');if(k==='2'||k==='l')chooseDevice('pc')}
+ else if(state==='menu'){const n=parseInt(e.key);if(n>=1&&n<=playerSkins.length)chooseSkin(n-1);if(k==='enter')startGame()}
+ else if(state==='over'){if(k==='enter')state='menu'}
+ else if(state==='play'){if(k==='p'||k==='escape')openShop()}
+ else if(state==='shop'){if(k==='p'||k==='escape'||k==='enter')state='play'}});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.used=true});
+canvas.addEventListener('mousedown',e=>{
+ mouse.used=true;const x=e.clientX,y=e.clientY;
+ if(state==='device')devicePress(x,y);else if(state==='menu')menuPress(x,y);
+ else if(state==='over')state='menu';else if(state==='shop')shopPress(x,y);
+ else if(inRect(x,y,pauseR()))openShop();else mouse.down=true});
+addEventListener('mouseup',()=>mouse.down=false);
 
-// ================= PC controls =================
-const keys = {};
-addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if (state === 'device') {
-    if (e.key === '1' || e.key.toLowerCase() === 't') chooseDevice('touch');
-    if (e.key === '2' || e.key.toLowerCase() === 'l') chooseDevice('pc');
-  } else if (state === 'menu') {
-    const n = parseInt(e.key);
-    if (n >= 1 && n <= playerSkins.length) chooseSkin(n - 1);
-    if (e.key === 'Enter') startGame();
-  } else if (state === 'over' && e.key === 'Enter') state = 'menu';
-});
-addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-const mouse = { x: 0, y: 0, down: false, used: false };
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.used = true; });
-canvas.addEventListener('mousedown', e => {
-  mouse.used = true;
-  if (state === 'device') devicePress(e.clientX, e.clientY);
-  else if (state === 'menu') menuPress(e.clientX, e.clientY);
-  else if (state === 'over') state = 'menu';
-  else mouse.down = true;
-});
-addEventListener('mouseup', () => mouse.down = false);
+// ===== Touch controls: joystick bottom-left, FIRE button bottom-right =====
+function ctl(){const r=Math.max(50,Math.min(65,W/8));return{jx:r+50,jy:H-r-50,jr:r,bx:W-r-50,by:H-r-50,br:r*.85}}
+function handleTouch(e){
+ e.preventDefault();
+ if(e.type==='touchstart')for(const t of e.changedTouches){
+  const x=t.clientX,y=t.clientY;
+  if(state==='device')devicePress(x,y);else if(state==='menu')menuPress(x,y);
+  else if(state==='over')state='menu';else if(state==='shop')shopPress(x,y);
+  else if(state==='play'&&inRect(x,y,pauseR())){openShop();return}}
+ if(state==='play'&&device==='touch'){
+  const c=ctl();joy.active=false;joy.dx=joy.dy=0;fireHeld=false;
+  for(const t of e.touches){
+   if(t.clientX<W/2&&!joy.active){
+    const vx=t.clientX-c.jx,vy=t.clientY-c.jy,len=Math.hypot(vx,vy),k=Math.min(len,c.jr)/c.jr;
+    joy.active=true;joy.dx=len?vx/len*k:0;joy.dy=len?vy/len*k:0}
+   else if(Math.hypot(t.clientX-c.bx,t.clientY-c.by)<c.br*1.5)fireHeld=true}}}
+['touchstart','touchmove','touchend','touchcancel'].forEach(n=>canvas.addEventListener(n,handleTouch,{passive:false}));
 
-// ================= Touch controls =================
-// Joystick (bottom-left) moves you. FIRE button (bottom-right) shoots and auto-aims at the nearest zombie.
-function ctl() {
-  const r = Math.max(50, Math.min(65, W / 8));
-  return { jx: r + 50, jy: H - r - 50, jr: r, bx: W - r - 50, by: H - r - 50, br: r * 0.85 };
-}
-function handleTouch(e) {
-  e.preventDefault();
-  if (e.type === 'touchstart') {
-    for (const t of e.changedTouches) {
-      if (state === 'device') devicePress(t.clientX, t.clientY);
-      else if (state === 'menu') menuPress(t.clientX, t.clientY);
-      else if (state === 'over') state = 'menu';
-    }
-  }
-  if (state === 'play' && device === 'touch') {
-    const c = ctl();
-    joy.active = false; joy.dx = joy.dy = 0; fireHeld = false;
-    for (const t of e.touches) {
-      if (t.clientX < W / 2 && !joy.active) {
-        const vx = t.clientX - c.jx, vy = t.clientY - c.jy;
-        const len = Math.hypot(vx, vy);
-        const k = Math.min(len, c.jr) / c.jr;
-        joy.active = true;
-        joy.dx = len ? vx / len * k : 0;
-        joy.dy = len ? vy / len * k : 0;
-      } else if (Math.hypot(t.clientX - c.bx, t.clientY - c.by) < c.br * 1.5) {
-        fireHeld = true;
-      }
-    }
-  }
-}
-['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(n =>
-  canvas.addEventListener(n, handleTouch, { passive: false }));
+// ===== Game logic =====
+function nearest(x,y,max){let n=null,best=max;for(const z of zombies){const d=Math.hypot(z.x-x,z.y-y);if(d<best){best=d;n=z}}return n}
+function update(dt){
+ let mx=0,my=0;
+ if(device==='touch'){mx=joy.dx;my=joy.dy}
+ else{if(keys.w||keys.arrowup)my--;if(keys.s||keys.arrowdown)my++;if(keys.a||keys.arrowleft)mx--;if(keys.d||keys.arrowright)mx++}
+ const ml=Math.hypot(mx,my);if(ml>1){mx/=ml;my/=ml}
+ player.x=Math.max(20,Math.min(W-20,player.x+mx*PLAYER_SPEED*dt));
+ player.y=Math.max(40,Math.min(H-20,player.y+my*PLAYER_SPEED*dt));
 
-// ================= Game logic =================
-function update(dt) {
-  let mx = 0, my = 0;
-  if (device === 'touch') { mx = joy.dx; my = joy.dy; }
-  else {
-    if (keys['w'] || keys['arrowup']) my -= 1;
-    if (keys['s'] || keys['arrowdown']) my += 1;
-    if (keys['a'] || keys['arrowleft']) mx -= 1;
-    if (keys['d'] || keys['arrowright']) mx += 1;
-  }
-  const ml = Math.hypot(mx, my);
-  if (ml > 1) { mx /= ml; my /= ml; }
-  player.x = Math.max(20, Math.min(W - 20, player.x + mx * PLAYER_SPEED * dt));
-  player.y = Math.max(20, Math.min(H - 20, player.y + my * PLAYER_SPEED * dt));
+ let shooting=false;
+ if(device==='touch'){
+  const n=nearest(player.x,player.y,1e9);
+  if(n)player.angle=Math.atan2(n.y-player.y,n.x-player.x);else if(ml>.2)player.angle=Math.atan2(my,mx);
+  shooting=fireHeld}
+ else if(mouse.used){player.angle=Math.atan2(mouse.y-player.y,mouse.x-player.x);shooting=mouse.down||keys[' ']}
 
-  let shooting = false;
-  if (device === 'touch') {
-    let near = null, best = Infinity;
-    for (const z of zombies) {
-      const d = Math.hypot(z.x - player.x, z.y - player.y);
-      if (d < best) { best = d; near = z; }
-    }
-    if (near) player.angle = Math.atan2(near.y - player.y, near.x - player.x);
-    else if (ml > 0.2) player.angle = Math.atan2(my, mx);
-    shooting = fireHeld;
-  } else if (mouse.used) {
-    player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-    shooting = mouse.down || keys[' '];
-  }
-  shotTimer -= dt;
-  if (shooting && shotTimer <= 0) {
-    shotTimer = FIRE_DELAY;
-    bullets.push({
-      x: player.x, y: player.y,
-      vx: Math.cos(player.angle) * BULLET_SPEED,
-      vy: Math.sin(player.angle) * BULLET_SPEED,
-      life: 1.2
-    });
-  }
+ const G=GUNS[gun],delay=G.delay*Math.pow(.88,up.rate),dmg=G.dmg*(1+.35*up.dmg);
+ shotTimer-=dt;
+ if(shooting&&shotTimer<=0){
+  shotTimer=delay;
+  for(let i=0;i<G.pel;i++){
+   const a=player.angle+(Math.random()-.5)*G.spr;
+   bullets.push({x:player.x+Math.cos(player.angle)*G.len,y:player.y+Math.sin(player.angle)*G.len,vx:Math.cos(a)*G.spd,vy:Math.sin(a)*G.spd,life:1.2,dmg})}}
 
-  bullets.forEach(b => { b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; });
-  bullets = bullets.filter(b => b.life > 0);
+ if(bot){ // Bot buddy: wanders randomly near you and shoots the closest zombie
+  bot.t-=dt;
+  if(bot.t<=0){bot.tx=player.x+(Math.random()-.5)*320;bot.ty=player.y+(Math.random()-.5)*320;bot.t=.8+Math.random()*2}
+  const dx=bot.tx-bot.x,dy=bot.ty-bot.y,d=Math.hypot(dx,dy)||1;
+  if(d>8){bot.x+=dx/d*140*dt;bot.y+=dy/d*140*dt}
+  bot.cd-=dt;const n=nearest(bot.x,bot.y,380);
+  if(n){bot.a=Math.atan2(n.y-bot.y,n.x-bot.x);
+   if(bot.cd<=0){bot.cd=.45;bullets.push({x:bot.x,y:bot.y,vx:Math.cos(bot.a)*600,vy:Math.sin(bot.a)*600,life:1,dmg:1+.2*up.dmg})}}}
 
-  spawnTimer -= dt;
-  if (spawnTimer <= 0) {
-    spawnTimer = Math.max(0.35, 1.5 - score / 400);
-    const side = Math.floor(Math.random() * 4);
-    const type = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
-    zombies.push({
-      x: side === 0 ? -40 : side === 1 ? W + 40 : Math.random() * W,
-      y: side === 2 ? -40 : side === 3 ? H + 40 : Math.random() * H,
-      hp: type.hp,
-      speed: (50 + Math.random() * 40 + Math.min(score / 20, 60)) * type.speed,
-      size: type.size, img: type.img, flip: false
-    });
-  }
+ bullets.forEach(b=>{b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt});
+ bullets=bullets.filter(b=>b.life>0);
 
-  for (const z of zombies) {
-    const dx = player.x - z.x, dy = player.y - z.y;
-    const d = Math.hypot(dx, dy) || 1;
-    z.x += (dx / d) * z.speed * dt;
-    z.y += (dy / d) * z.speed * dt;
-    z.flip = dx < 0;
-    if (d < 35) player.hp -= 20 * dt;
-    for (const b of bullets) {
-      if (b.life > 0 && Math.hypot(b.x - z.x, b.y - z.y) < z.size * 0.4) { z.hp--; b.life = 0; }
-    }
-  }
-  const before = zombies.length;
-  zombies = zombies.filter(z => z.hp > 0);
-  score += (before - zombies.length) * 10;
+ spawnTimer-=dt;
+ if(spawnTimer<=0){
+  spawnTimer=Math.max(.35,1.5-score/400);
+  const side=Math.floor(Math.random()*4),t=zombieTypes[Math.random()<.6?0:Math.floor(Math.random()*zombieTypes.length)];
+  zombies.push({x:side===0?-40:side===1?W+40:Math.random()*W,y:side===2?-40:side===3?H+40:Math.random()*H,
+   hp:t.hp,speed:(50+Math.random()*40+Math.min(score/20,60))*t.speed,size:t.size,skin:t.skin,shirt:t.shirt,img:t.img,flip:false,ph:Math.random()*6})}
 
-  if (player.hp <= 0) { player.hp = 0; state = 'over'; }
-}
+ for(const z of zombies){
+  const dx=player.x-z.x,dy=player.y-z.y,d=Math.hypot(dx,dy)||1;
+  z.x+=dx/d*z.speed*dt;z.y+=dy/d*z.speed*dt;z.flip=dx<0;
+  if(d<35)player.hp-=20*dt;
+  for(const b of bullets)if(b.life>0&&Math.hypot(b.x-z.x,b.y-z.y)<z.size*.4){z.hp-=b.dmg;b.life=0}}
+ zombies=zombies.filter(z=>{if(z.hp>0)return true;coins+=5;score+=10;return false});
+ if(player.hp<=0){player.hp=0;state='over'}}
 
-// ================= Drawing =================
-function button(r, label, color, size) {
-  ctx.fillStyle = color; ctx.fillRect(r.x, r.y, r.w, r.h);
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-  ctx.font = 'bold ' + (size || 26) + 'px sans-serif';
-  ctx.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + (size || 26) / 3);
-}
+// ===== Drawing =====
+function ci(x,y,r,f){ctx.fillStyle=f;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke()}
+function bx(x,y,w,h,f){ctx.fillStyle=f;ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h)}
+function button(r,label,color,size){
+ ctx.fillStyle=color;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.fillStyle='#fff';ctx.textAlign='center';
+ ctx.font='bold '+size+'px sans-serif';ctx.fillText(label,r.x+r.w/2,r.y+r.h/2+size/3)}
 
-function drawZombie(z) {
-  ctx.save();
-  ctx.translate(z.x, z.y);
-  if (z.flip) ctx.scale(-1, 1);
-  if (z.img.complete && z.img.naturalWidth) {
-    const w = z.size * z.img.naturalWidth / z.img.naturalHeight;
-    ctx.drawImage(z.img, -w / 2, -z.size / 2, w, z.size);
-  } else {
-    ctx.fillStyle = '#3a8d2f';
-    ctx.beginPath(); ctx.arc(0, 0, 25, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
+function drawZombie(z){
+ ctx.save();ctx.translate(z.x,z.y);if(z.flip)ctx.scale(-1,1);
+ if(z.img&&z.img.complete&&z.img.naturalWidth){
+  const w=z.size*z.img.naturalWidth/z.img.naturalHeight;ctx.drawImage(z.img,-w/2,-z.size/2,w,z.size)}
+ else{
+  const w=Math.sin(T*7+z.ph)*3;ctx.scale(z.size/80,z.size/80);ctx.strokeStyle='#111';ctx.lineWidth=3;
+  bx(-14,22+w,10,16,'#5a3b1a');bx(4,22-w,10,16,'#5a3b1a');            // legs
+  bx(-17,-2,34,28,z.shirt);                                            // shirt
+  bx(14,2+w,26,9,z.skin);bx(14,14-w,22,9,z.skin);                      // arms out
+  ci(0,-18,22,z.skin);                                                 // head
+  ci(-8,-22,6,'#fff');ci(8,-22,6,'#fff');ci(-6,-22,2.5,'#111');ci(10,-22,2.5,'#111'); // eyes
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(2,-8,6,0,Math.PI);ctx.fill();          // mouth
+  ci(-8,-38,8,'#f3a6c8')}                                              // brain
+ ctx.restore()}
 
-function drawPlayer(x, y, angle, skin, scale) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  if (skin.img && skin.img.complete && skin.img.naturalWidth) {
-    const h = 60, w = h * skin.img.naturalWidth / skin.img.naturalHeight;
-    if (Math.cos(angle) < 0) ctx.scale(-1, 1);
-    ctx.drawImage(skin.img, -w / 2, -h / 2, w, h);
-  } else {
-    ctx.rotate(angle);
-    ctx.fillStyle = '#555'; ctx.fillRect(10, -4, 22, 8);
-    ctx.fillStyle = skin.color || '#3b82f6';
-    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#0006'; ctx.lineWidth = 3; ctx.stroke();
-  }
-  ctx.restore();
-}
+function drawPlayer(x,y,a,skin,sc,gk){
+ ctx.save();ctx.translate(x,y);ctx.scale(sc,sc);ctx.strokeStyle='#111';ctx.lineWidth=3;
+ if(skin.img&&skin.img.complete&&skin.img.naturalWidth){
+  const h=60,w=h*skin.img.naturalWidth/skin.img.naturalHeight;ctx.save();if(Math.cos(a)<0)ctx.scale(-1,1);ctx.drawImage(skin.img,-w/2,-h/2-10,w,h);ctx.restore()}
+ else{
+  bx(-10,-8,20,26,skin.color||'#3b82f6');                              // body
+  ci(0,-20,12,'#f1c27d');ci(4*(Math.cos(a)<0?-1:1),-22,2,'#111')}      // head + eye
+ const G=GUNS[gk];ctx.rotate(a);if(Math.cos(a)<0)ctx.scale(1,-1);
+ bx(0,-3,G.len,6,G.col);bx(2,3,6,9,G.col);                             // gun
+ ctx.restore()}
 
-function drawTouchControls() {
-  const c = ctl();
-  // Joystick
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 4;
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.beginPath(); ctx.arc(c.jx, c.jy, c.jr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.beginPath(); ctx.arc(c.jx + joy.dx * c.jr, c.jy + joy.dy * c.jr, c.jr * 0.4, 0, Math.PI * 2); ctx.fill();
-  // Fire button
-  ctx.fillStyle = fireHeld ? 'rgba(255,80,80,0.9)' : 'rgba(214,59,59,0.6)';
-  ctx.beginPath(); ctx.arc(c.bx, c.by, c.br, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif';
-  ctx.fillText('FIRE', c.bx, c.by + 8);
-}
+function drawBot(){
+ ctx.save();ctx.translate(bot.x,bot.y);ctx.strokeStyle='#111';ctx.lineWidth=3;
+ bx(-1,-34,2,12,'#aaa');ci(0,-35,4,'#f33');bx(-12,-22,24,24,'#9aa5b1');ci(-5,-12,3,'#0ff');ci(5,-12,3,'#0ff');
+ ctx.rotate(bot.a);bx(8,-2,16,5,'#333');ctx.restore()}
 
-function drawDeviceScreen() {
-  const R = deviceRects();
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.font = 'bold 40px sans-serif';
-  ctx.fillText('Zombie Survival', W / 2, R.touch.y - 90);
-  ctx.font = '22px sans-serif';
-  ctx.fillText('What are you playing on?', W / 2, R.touch.y - 40);
-  button(R.touch, 'Touch (iPad / phone)', '#3b82f6', 24);
-  button(R.pc, 'Laptop / PC', '#22a34a', 24);
-}
+function drawTouchControls(){
+ const c=ctl();
+ ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=4;ctx.fillStyle='rgba(255,255,255,.08)';
+ ctx.beginPath();ctx.arc(c.jx,c.jy,c.jr,0,7);ctx.fill();ctx.stroke();
+ ctx.fillStyle='rgba(255,255,255,.45)';ctx.beginPath();ctx.arc(c.jx+joy.dx*c.jr,c.jy+joy.dy*c.jr,c.jr*.4,0,7);ctx.fill();
+ ctx.fillStyle=fireHeld?'rgba(255,80,80,.9)':'rgba(214,59,59,.6)';
+ ctx.beginPath();ctx.arc(c.bx,c.by,c.br,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.stroke();
+ ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 22px sans-serif';ctx.fillText('FIRE',c.bx,c.by+8)}
 
-function drawMenu() {
-  const L = menuLayout();
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.font = 'bold 44px sans-serif';
-  ctx.fillText('Zombie Survival', W / 2, L.y - 70);
-  ctx.font = '20px sans-serif';
-  ctx.fillText('Choose your skin', W / 2, L.y - 30);
-  playerSkins.forEach((s, i) => {
-    const x = L.startX + i * (L.size + L.gap);
-    ctx.fillStyle = '#00000066'; ctx.fillRect(x, L.y, L.size, L.size);
-    ctx.strokeStyle = i === skinIndex ? '#ffd84a' : '#ffffff44';
-    ctx.lineWidth = i === skinIndex ? 4 : 2;
-    ctx.strokeRect(x, L.y, L.size, L.size);
-    drawPlayer(x + L.size / 2, L.y + L.size / 2, 0, s, L.size / 90);
-    ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(s.name, x + L.size / 2, L.y + L.size + 20);
-  });
-  button(L.play, 'PLAY', '#d63b3b', 26);
-  button(L.change, 'Device: ' + (device === 'touch' ? 'Touch' : 'PC') + ' (change)', '#00000088', 14);
-}
+function drawDeviceScreen(){
+ const R=deviceRects();ctx.textAlign='center';ctx.fillStyle='#fff';
+ ctx.font='bold 40px sans-serif';ctx.fillText('Zombie Survival',W/2,R.touch.y-90);
+ ctx.font='22px sans-serif';ctx.fillText('What are you playing on?',W/2,R.touch.y-40);
+ button(R.touch,'Touch (iPad / phone)','#3b82f6',24);button(R.pc,'Laptop / PC','#22a34a',24)}
 
-function draw() {
-  ctx.fillStyle = '#2b3622';
-  ctx.fillRect(0, 0, W, H);
+function drawMenu(){
+ const L=menuLayout();ctx.textAlign='center';ctx.fillStyle='#fff';
+ ctx.font='bold 44px sans-serif';ctx.fillText('Zombie Survival',W/2,L.y-70);
+ ctx.font='20px sans-serif';ctx.fillText('Choose your skin',W/2,L.y-30);
+ playerSkins.forEach((s,i)=>{
+  const x=L.startX+i*(L.size+L.gap);
+  ctx.fillStyle='#00000066';ctx.fillRect(x,L.y,L.size,L.size);
+  ctx.strokeStyle=i===skinIndex?'#ffd84a':'#ffffff44';ctx.lineWidth=i===skinIndex?4:2;ctx.strokeRect(x,L.y,L.size,L.size);
+  drawPlayer(x+L.size/2-6*L.size/90,L.y+L.size/2+8*L.size/90,0,s,L.size/90,'pistol');
+  ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText(s.name,x+L.size/2,L.y+L.size+20)});
+ button(L.play,'PLAY','#d63b3b',26);
+ button(L.change,'Device: '+(device==='touch'?'Touch':'PC')+' (change)','#00000088',14)}
 
-  if (state === 'device') { drawDeviceScreen(); return; }
-  if (state === 'menu') { drawMenu(); return; }
+function drawShop(){
+ const S=shopLayout();ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 34px sans-serif';ctx.fillText('POWER-UPS',W/2,46);
+ ctx.fillStyle='#ffd84a';ctx.font='bold 22px sans-serif';ctx.fillText('Coins: '+coins,W/2,78);
+ S.its.forEach((it,i)=>{
+  const r=S.rects[i];let st,ok=false;
+  if(it.gun){if(owned[it.gun])st=gun===it.gun?'EQUIPPED':'Tap to equip';else{st=it.cost+' coins';ok=coins>=it.cost}}
+  else if(it.bot){if(bot)st='OWNED';else{st=it.cost+' coins';ok=coins>=it.cost}}
+  else if(it.lvl>=it.max)st='MAX';else{st=it.cost+' coins';ok=coins>=it.cost}
+  ctx.fillStyle=ok?'#1f6f3a':'#000a';ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.strokeStyle=it.gun&&gun===it.gun?'#ffd84a':'#fff4';ctx.lineWidth=2;ctx.strokeRect(r.x,r.y,r.w,r.h);
+  ctx.textAlign='left';ctx.fillStyle='#fff';ctx.font='bold 17px sans-serif';
+  ctx.fillText(it.n+(it.max?'  Lv '+it.lvl+'/'+it.max:''),r.x+12,r.y+r.h/2-4);
+  ctx.fillStyle='#ccc';ctx.font='13px sans-serif';ctx.fillText(it.d,r.x+12,r.y+r.h/2+16);
+  ctx.textAlign='right';ctx.fillStyle=ok?'#ffd84a':'#aaa';ctx.font='bold 15px sans-serif';ctx.fillText(st,r.x+r.w-12,r.y+r.h/2-4)});
+ button(S.resume,'RESUME','#d63b3b',24)}
 
-  zombies.forEach(drawZombie);
-  ctx.fillStyle = '#ffd84a';
-  bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill(); });
-  drawPlayer(player.x, player.y, player.angle, playerSkins[skinIndex], 1);
+function draw(){
+ ctx.fillStyle='#2b3622';ctx.fillRect(0,0,W,H);
+ if(state==='device'){drawDeviceScreen();return}
+ if(state==='menu'){drawMenu();return}
+ zombies.slice().sort((a,b)=>a.y-b.y).forEach(drawZombie);
+ ctx.fillStyle='#ffd84a';bullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,7);ctx.fill()});
+ if(bot)drawBot();
+ drawPlayer(player.x,player.y,player.angle,playerSkins[skinIndex],1,gun);
+ if(device==='touch')drawTouchControls();
+ ctx.textAlign='left';ctx.fillStyle='#000a';ctx.fillRect(16,16,204,20);
+ ctx.fillStyle='#d63b3b';ctx.fillRect(18,18,200*player.hp/player.maxhp,16);
+ ctx.fillStyle='#fff';ctx.font='bold 20px sans-serif';ctx.fillText('Score: '+score,16,62);
+ ctx.fillStyle='#ffd84a';ctx.fillText('Coins: '+coins,16,88);
+ button(pauseR(),'SHOP','#000a',18);
+ if(state==='shop'){ctx.fillStyle='#000c';ctx.fillRect(0,0,W,H);drawShop()}
+ if(state==='over'){
+  ctx.fillStyle='#000b';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.textAlign='center';
+  ctx.font='bold 48px sans-serif';ctx.fillText('You were eaten!',W/2,H/2-20);
+  ctx.font='22px sans-serif';ctx.fillText('Score: '+score,W/2,H/2+20);
+  ctx.fillText('Tap or press Enter to pick a skin and play again',W/2,H/2+56)}}
 
-  if (device === 'touch') drawTouchControls();
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#000a'; ctx.fillRect(16, 16, 204, 20);
-  ctx.fillStyle = '#d63b3b'; ctx.fillRect(18, 18, 200 * player.hp / 100, 16);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('Score: ' + score, 16, 62);
-
-  if (state === 'over') {
-    ctx.fillStyle = '#000b'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-    ctx.font = 'bold 48px sans-serif'; ctx.fillText('You were eaten!', W / 2, H / 2 - 20);
-    ctx.font = '22px sans-serif';
-    ctx.fillText('Score: ' + score, W / 2, H / 2 + 20);
-    ctx.fillText('Tap or press Enter to pick a skin and play again', W / 2, H / 2 + 56);
-  }
-}
-
-// ================= Main loop =================
-let last = performance.now();
-function loop(now) {
-  const dt = Math.min((now - last) / 1000, 0.05);
-  last = now;
-  if (state === 'play') update(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
+// ===== Main loop =====
+let last=performance.now();
+function loop(now){
+ const dt=Math.min((now-last)/1000,.05);last=now;T=now/1000;
+ if(state==='play')update(dt);
+ draw();requestAnimationFrame(loop)}
 requestAnimationFrame(loop);
-</script>
-</body>
-</html>
+</script></body></html>
