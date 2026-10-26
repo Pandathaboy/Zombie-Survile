@@ -19,84 +19,167 @@ function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeig
 addEventListener('resize', resize);
 resize();
 
-// Zombie pictures (must be in an "assets" folder next to index.html)
-const zombieImgs = ['assets/zombie1.gif', 'assets/zombie2.gif'].map(src => {
-  const img = new Image();
-  img.src = src;
-  return img;
-});
+// ================= SKINS (edit these lists to add more!) =================
+// Color skin:   { name: 'Name', color: '#hexcolor' }
+// Picture skin: { name: 'Name', src: 'assets/yourfile.png' }
+const playerSkins = [
+  { name: 'Soldier', color: '#3b82f6' },
+  { name: 'Ranger',  color: '#22c55e' },
+  { name: 'Rebel',   color: '#ef4444' },
+  { name: 'Ghost',   color: '#e5e7eb' },
+  { name: 'Gold',    color: '#facc15' }
+];
+// hp = hits to kill, speed = 1 is normal, size = height in pixels
+const zombieTypes = [
+  { src: 'assets/zombie1.gif', hp: 2, speed: 1,    size: 70 },
+  { src: 'assets/zombie2.gif', hp: 3, speed: 0.85, size: 80 }
+];
+playerSkins.forEach(s => { if (s.src) { s.img = new Image(); s.img.src = s.src; } });
+zombieTypes.forEach(t => { t.img = new Image(); t.img.src = t.src; });
 
-// Settings to tweak
+// ================= Settings =================
 const PLAYER_SPEED = 220;
 const BULLET_SPEED = 600;
 const FIRE_DELAY = 0.18;
-const ZOMBIE_SIZE = 70;
 
-let player, bullets, zombies, score, spawnTimer, shotTimer, gameOver;
-function reset() {
+// ================= State =================
+let state = 'device';   // 'device', 'menu', 'play', 'over'
+let device = 'pc';      // 'pc' or 'touch'
+let skinIndex = 0;
+try { skinIndex = Math.min(+localStorage.getItem('skin') || 0, playerSkins.length - 1); } catch (e) {}
+let player, bullets, zombies, score, spawnTimer, shotTimer;
+const joy = { active: false, dx: 0, dy: 0 };
+let fireHeld = false;
+
+function startGame() {
   player = { x: W / 2, y: H / 2, hp: 100, angle: 0 };
   bullets = []; zombies = []; score = 0;
-  spawnTimer = 0; shotTimer = 0; gameOver = false;
+  spawnTimer = 0; shotTimer = 0;
+  joy.active = false; joy.dx = joy.dy = 0; fireHeld = false;
+  state = 'play';
 }
-reset();
+function chooseSkin(i) {
+  skinIndex = i;
+  try { localStorage.setItem('skin', i); } catch (e) {}
+}
+function chooseDevice(d) { device = d; state = 'menu'; }
 
-// PC controls
+// ================= Screens: layout + presses =================
+function deviceRects() {
+  const w = Math.min(340, W - 40), h = 80, x = W / 2 - w / 2;
+  return { touch: { x, y: H / 2 - h - 10, w, h }, pc: { x, y: H / 2 + 10, w, h } };
+}
+function inRect(px, py, r) { return px > r.x && px < r.x + r.w && py > r.y && py < r.y + r.h; }
+function devicePress(px, py) {
+  const R = deviceRects();
+  if (inRect(px, py, R.touch)) chooseDevice('touch');
+  else if (inRect(px, py, R.pc)) chooseDevice('pc');
+}
+
+function menuLayout() {
+  const n = playerSkins.length, gap = 12;
+  const size = Math.min(90, (W - 40 - (n - 1) * gap) / n);
+  const startX = W / 2 - (n * size + (n - 1) * gap) / 2;
+  const y = H / 2 - size / 2;
+  return { size, gap, startX, y,
+    play: { x: W / 2 - 100, y: y + size + 70, w: 200, h: 56 },
+    change: { x: 16, y: 16, w: 200, h: 36 } };
+}
+function menuPress(px, py) {
+  const L = menuLayout();
+  playerSkins.forEach((s, i) => {
+    const x = L.startX + i * (L.size + L.gap);
+    if (px > x && px < x + L.size && py > L.y && py < L.y + L.size) chooseSkin(i);
+  });
+  if (inRect(px, py, L.play)) startGame();
+  if (inRect(px, py, L.change)) state = 'device';
+}
+
+// ================= PC controls =================
 const keys = {};
 addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
-  if (gameOver && e.key === 'Enter') reset();
+  if (state === 'device') {
+    if (e.key === '1' || e.key.toLowerCase() === 't') chooseDevice('touch');
+    if (e.key === '2' || e.key.toLowerCase() === 'l') chooseDevice('pc');
+  } else if (state === 'menu') {
+    const n = parseInt(e.key);
+    if (n >= 1 && n <= playerSkins.length) chooseSkin(n - 1);
+    if (e.key === 'Enter') startGame();
+  } else if (state === 'over' && e.key === 'Enter') state = 'menu';
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 const mouse = { x: 0, y: 0, down: false, used: false };
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.used = true; });
-canvas.addEventListener('mousedown', () => { mouse.down = true; mouse.used = true; if (gameOver) reset(); });
+canvas.addEventListener('mousedown', e => {
+  mouse.used = true;
+  if (state === 'device') devicePress(e.clientX, e.clientY);
+  else if (state === 'menu') menuPress(e.clientX, e.clientY);
+  else if (state === 'over') state = 'menu';
+  else mouse.down = true;
+});
 addEventListener('mouseup', () => mouse.down = false);
 
-// Touch controls: left half = move, right half = aim + shoot
-const sticks = {
-  move: { id: null, sx: 0, sy: 0, x: 0, y: 0, dx: 0, dy: 0 },
-  aim:  { id: null, sx: 0, sy: 0, x: 0, y: 0, dx: 0, dy: 0 }
-};
-const STICK_RADIUS = 60;
-function updateStick(s) {
-  const vx = s.x - s.sx, vy = s.y - s.sy;
-  const len = Math.hypot(vx, vy);
-  const k = Math.min(len, STICK_RADIUS) / STICK_RADIUS;
-  s.dx = len ? (vx / len) * k : 0;
-  s.dy = len ? (vy / len) * k : 0;
+// ================= Touch controls =================
+// Joystick (bottom-left) moves you. FIRE button (bottom-right) shoots and auto-aims at the nearest zombie.
+function ctl() {
+  const r = Math.max(50, Math.min(65, W / 8));
+  return { jx: r + 50, jy: H - r - 50, jr: r, bx: W - r - 50, by: H - r - 50, br: r * 0.85 };
 }
 function handleTouch(e) {
   e.preventDefault();
-  for (const t of e.changedTouches) {
-    const s = t.clientX < W / 2 ? sticks.move : sticks.aim;
-    if (e.type === 'touchstart' && s.id === null) {
-      if (gameOver) reset();
-      s.id = t.identifier; s.sx = s.x = t.clientX; s.sy = s.y = t.clientY;
-    } else if (t.identifier === s.id) {
-      if (e.type === 'touchmove') { s.x = t.clientX; s.y = t.clientY; }
-      else { s.id = null; s.dx = s.dy = 0; }
+  if (e.type === 'touchstart') {
+    for (const t of e.changedTouches) {
+      if (state === 'device') devicePress(t.clientX, t.clientY);
+      else if (state === 'menu') menuPress(t.clientX, t.clientY);
+      else if (state === 'over') state = 'menu';
     }
-    if (s.id !== null) updateStick(s);
+  }
+  if (state === 'play' && device === 'touch') {
+    const c = ctl();
+    joy.active = false; joy.dx = joy.dy = 0; fireHeld = false;
+    for (const t of e.touches) {
+      if (t.clientX < W / 2 && !joy.active) {
+        const vx = t.clientX - c.jx, vy = t.clientY - c.jy;
+        const len = Math.hypot(vx, vy);
+        const k = Math.min(len, c.jr) / c.jr;
+        joy.active = true;
+        joy.dx = len ? vx / len * k : 0;
+        joy.dy = len ? vy / len * k : 0;
+      } else if (Math.hypot(t.clientX - c.bx, t.clientY - c.by) < c.br * 1.5) {
+        fireHeld = true;
+      }
+    }
   }
 }
 ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(n =>
   canvas.addEventListener(n, handleTouch, { passive: false }));
 
+// ================= Game logic =================
 function update(dt) {
-  let mx = sticks.move.dx, my = sticks.move.dy;
-  if (keys['w'] || keys['arrowup']) my -= 1;
-  if (keys['s'] || keys['arrowdown']) my += 1;
-  if (keys['a'] || keys['arrowleft']) mx -= 1;
-  if (keys['d'] || keys['arrowright']) mx += 1;
+  let mx = 0, my = 0;
+  if (device === 'touch') { mx = joy.dx; my = joy.dy; }
+  else {
+    if (keys['w'] || keys['arrowup']) my -= 1;
+    if (keys['s'] || keys['arrowdown']) my += 1;
+    if (keys['a'] || keys['arrowleft']) mx -= 1;
+    if (keys['d'] || keys['arrowright']) mx += 1;
+  }
   const ml = Math.hypot(mx, my);
   if (ml > 1) { mx /= ml; my /= ml; }
   player.x = Math.max(20, Math.min(W - 20, player.x + mx * PLAYER_SPEED * dt));
   player.y = Math.max(20, Math.min(H - 20, player.y + my * PLAYER_SPEED * dt));
 
   let shooting = false;
-  if (sticks.aim.id !== null && (sticks.aim.dx || sticks.aim.dy)) {
-    player.angle = Math.atan2(sticks.aim.dy, sticks.aim.dx);
-    shooting = true;
+  if (device === 'touch') {
+    let near = null, best = Infinity;
+    for (const z of zombies) {
+      const d = Math.hypot(z.x - player.x, z.y - player.y);
+      if (d < best) { best = d; near = z; }
+    }
+    if (near) player.angle = Math.atan2(near.y - player.y, near.x - player.x);
+    else if (ml > 0.2) player.angle = Math.atan2(my, mx);
+    shooting = fireHeld;
   } else if (mouse.used) {
     player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
     shooting = mouse.down || keys[' '];
@@ -119,13 +202,13 @@ function update(dt) {
   if (spawnTimer <= 0) {
     spawnTimer = Math.max(0.35, 1.5 - score / 400);
     const side = Math.floor(Math.random() * 4);
+    const type = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
     zombies.push({
       x: side === 0 ? -40 : side === 1 ? W + 40 : Math.random() * W,
       y: side === 2 ? -40 : side === 3 ? H + 40 : Math.random() * H,
-      hp: 2,
-      speed: 50 + Math.random() * 40 + Math.min(score / 20, 60),
-      img: zombieImgs[Math.floor(Math.random() * zombieImgs.length)],
-      flip: false
+      hp: type.hp,
+      speed: (50 + Math.random() * 40 + Math.min(score / 20, 60)) * type.speed,
+      size: type.size, img: type.img, flip: false
     });
   }
 
@@ -137,24 +220,31 @@ function update(dt) {
     z.flip = dx < 0;
     if (d < 35) player.hp -= 20 * dt;
     for (const b of bullets) {
-      if (b.life > 0 && Math.hypot(b.x - z.x, b.y - z.y) < 30) { z.hp--; b.life = 0; }
+      if (b.life > 0 && Math.hypot(b.x - z.x, b.y - z.y) < z.size * 0.4) { z.hp--; b.life = 0; }
     }
   }
   const before = zombies.length;
   zombies = zombies.filter(z => z.hp > 0);
   score += (before - zombies.length) * 10;
 
-  if (player.hp <= 0) { player.hp = 0; gameOver = true; }
+  if (player.hp <= 0) { player.hp = 0; state = 'over'; }
+}
+
+// ================= Drawing =================
+function button(r, label, color, size) {
+  ctx.fillStyle = color; ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.font = 'bold ' + (size || 26) + 'px sans-serif';
+  ctx.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + (size || 26) / 3);
 }
 
 function drawZombie(z) {
-  const img = z.img;
   ctx.save();
   ctx.translate(z.x, z.y);
   if (z.flip) ctx.scale(-1, 1);
-  if (img.complete && img.naturalWidth) {
-    const w = ZOMBIE_SIZE * img.naturalWidth / img.naturalHeight;
-    ctx.drawImage(img, -w / 2, -ZOMBIE_SIZE / 2, w, ZOMBIE_SIZE);
+  if (z.img.complete && z.img.naturalWidth) {
+    const w = z.size * z.img.naturalWidth / z.img.naturalHeight;
+    ctx.drawImage(z.img, -w / 2, -z.size / 2, w, z.size);
   } else {
     ctx.fillStyle = '#3a8d2f';
     ctx.beginPath(); ctx.arc(0, 0, 25, 0, Math.PI * 2); ctx.fill();
@@ -162,54 +252,108 @@ function drawZombie(z) {
   ctx.restore();
 }
 
-function drawStick(s) {
-  if (s.id === null) return;
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(s.sx, s.sy, STICK_RADIUS, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.beginPath(); ctx.arc(s.sx + s.dx * STICK_RADIUS, s.sy + s.dy * STICK_RADIUS, 24, 0, Math.PI * 2); ctx.fill();
+function drawPlayer(x, y, angle, skin, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  if (skin.img && skin.img.complete && skin.img.naturalWidth) {
+    const h = 60, w = h * skin.img.naturalWidth / skin.img.naturalHeight;
+    if (Math.cos(angle) < 0) ctx.scale(-1, 1);
+    ctx.drawImage(skin.img, -w / 2, -h / 2, w, h);
+  } else {
+    ctx.rotate(angle);
+    ctx.fillStyle = '#555'; ctx.fillRect(10, -4, 22, 8);
+    ctx.fillStyle = skin.color || '#3b82f6';
+    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#0006'; ctx.lineWidth = 3; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTouchControls() {
+  const c = ctl();
+  // Joystick
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 4;
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.beginPath(); ctx.arc(c.jx, c.jy, c.jr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath(); ctx.arc(c.jx + joy.dx * c.jr, c.jy + joy.dy * c.jr, c.jr * 0.4, 0, Math.PI * 2); ctx.fill();
+  // Fire button
+  ctx.fillStyle = fireHeld ? 'rgba(255,80,80,0.9)' : 'rgba(214,59,59,0.6)';
+  ctx.beginPath(); ctx.arc(c.bx, c.by, c.br, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif';
+  ctx.fillText('FIRE', c.bx, c.by + 8);
+}
+
+function drawDeviceScreen() {
+  const R = deviceRects();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.font = 'bold 40px sans-serif';
+  ctx.fillText('Zombie Survival', W / 2, R.touch.y - 90);
+  ctx.font = '22px sans-serif';
+  ctx.fillText('What are you playing on?', W / 2, R.touch.y - 40);
+  button(R.touch, 'Touch (iPad / phone)', '#3b82f6', 24);
+  button(R.pc, 'Laptop / PC', '#22a34a', 24);
+}
+
+function drawMenu() {
+  const L = menuLayout();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.font = 'bold 44px sans-serif';
+  ctx.fillText('Zombie Survival', W / 2, L.y - 70);
+  ctx.font = '20px sans-serif';
+  ctx.fillText('Choose your skin', W / 2, L.y - 30);
+  playerSkins.forEach((s, i) => {
+    const x = L.startX + i * (L.size + L.gap);
+    ctx.fillStyle = '#00000066'; ctx.fillRect(x, L.y, L.size, L.size);
+    ctx.strokeStyle = i === skinIndex ? '#ffd84a' : '#ffffff44';
+    ctx.lineWidth = i === skinIndex ? 4 : 2;
+    ctx.strokeRect(x, L.y, L.size, L.size);
+    drawPlayer(x + L.size / 2, L.y + L.size / 2, 0, s, L.size / 90);
+    ctx.fillStyle = '#fff'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(s.name, x + L.size / 2, L.y + L.size + 20);
+  });
+  button(L.play, 'PLAY', '#d63b3b', 26);
+  button(L.change, 'Device: ' + (device === 'touch' ? 'Touch' : 'PC') + ' (change)', '#00000088', 14);
 }
 
 function draw() {
   ctx.fillStyle = '#2b3622';
   ctx.fillRect(0, 0, W, H);
-  zombies.forEach(drawZombie);
 
+  if (state === 'device') { drawDeviceScreen(); return; }
+  if (state === 'menu') { drawMenu(); return; }
+
+  zombies.forEach(drawZombie);
   ctx.fillStyle = '#ffd84a';
   bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill(); });
+  drawPlayer(player.x, player.y, player.angle, playerSkins[skinIndex], 1);
 
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.rotate(player.angle);
-  ctx.fillStyle = '#555'; ctx.fillRect(10, -4, 22, 8);
-  ctx.fillStyle = '#3b82f6';
-  ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+  if (device === 'touch') drawTouchControls();
 
-  drawStick(sticks.move);
-  drawStick(sticks.aim);
-
+  ctx.textAlign = 'left';
   ctx.fillStyle = '#000a'; ctx.fillRect(16, 16, 204, 20);
   ctx.fillStyle = '#d63b3b'; ctx.fillRect(18, 18, 200 * player.hp / 100, 16);
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
   ctx.fillText('Score: ' + score, 16, 62);
 
-  if (gameOver) {
+  if (state === 'over') {
     ctx.fillStyle = '#000b'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
     ctx.font = 'bold 48px sans-serif'; ctx.fillText('You were eaten!', W / 2, H / 2 - 20);
     ctx.font = '22px sans-serif';
     ctx.fillText('Score: ' + score, W / 2, H / 2 + 20);
-    ctx.fillText('Tap or press Enter to play again', W / 2, H / 2 + 56);
+    ctx.fillText('Tap or press Enter to pick a skin and play again', W / 2, H / 2 + 56);
   }
 }
 
+// ================= Main loop =================
 let last = performance.now();
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (!gameOver) update(dt);
+  if (state === 'play') update(dt);
   draw();
   requestAnimationFrame(loop);
 }
