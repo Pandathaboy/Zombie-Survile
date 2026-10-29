@@ -20,8 +20,8 @@ const zombieTypes=[
 zombieTypes.forEach(t=>{if(t.src){t.img=new Image();t.img.src=t.src}});
 playerSkins.forEach(s=>{if(s.src){s.img=new Image();s.img.src=s.src}});
 const PAL=[null,'#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#f5f5f5','#111827'];
-// ===== BANNERS: the boss of wave 1 drops the first one, wave 2 the second, and so on. Add more lines to add more! =====
-// sym can be: star skull brain bolt crown diamond heart circle
+const TC=['#f5f5f5','#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#111827','#ff2e93','#00e5ff'];
+// ===== BANNERS: boss of wave 1 drops the first, wave 2 the second, etc. sym: star skull brain bolt crown diamond heart circle =====
 const BANNERS=[
  {n:'Survivor',c1:'#2f7d32',c2:'#d7f5c9',sym:'star'},{n:'Brain Snack',c1:'#7b2d8e',c2:'#f3a6c8',sym:'brain'},
  {n:'Skull Flag',c1:'#1a1a1a',c2:'#f2f2f2',sym:'skull'},{n:'Sun Blaze',c1:'#e8590c',c2:'#ffe066',sym:'circle'},
@@ -29,42 +29,62 @@ const BANNERS=[
  {n:'Frostbite',c1:'#0e7490',c2:'#e0f7ff',sym:'diamond'},{n:'Blood Moon',c1:'#450a0a',c2:'#ef4444',sym:'circle'},
  {n:'Heartless',c1:'#be123c',c2:'#fecdd3',sym:'heart'},{n:'Gold Rush',c1:'#92400e',c2:'#fbbf24',sym:'star'},
  {n:'Night Watch',c1:'#0f172a',c2:'#cbd5e1',sym:'skull'},{n:'Zombie King',c1:'#166534',c2:'#fde047',sym:'crown'}];
-// ===== ARMOUR (weakest to strongest). red = damage you take, cost = safe coins, ch = chance a zombie spawns with it =====
+// ===== ARMOUR: tiers weakest to strongest. red = damage taken with the FULL set, cost = coins (safe), ch = drop weight =====
 const ARM=[
  {n:'Leather',c:'#8b5a2b',red:.9,cost:100,ch:.12},{n:'Iron',c:'#b0b7bf',red:.8,cost:300,ch:.06},
  {n:'Gold',c:'#f5c518',red:.7,cost:700,ch:.03},{n:'Diamond',c:'#4dd9e8',red:.55,cost:1500,ch:.012},
  {n:'Ruby',c:'#d6193a',red:.4,cost:3000,ch:.005}];
+const SLOTN=['Helmet','Chestplate','Boots'],SHARE=[.3,.45,.25]; // how much of the protection each piece gives
 // ===== GUNS (mag = bullets per magazine, rel = reload seconds) =====
 const GUNS={
  pistol:{n:'Pistol',d:'Free starter gun',delay:.25,dmg:1,pel:1,spr:0,spd:600,len:20,col:'#444',cost:0,mag:12,rel:1},
- revolver:{n:'Revolver',d:'Slow but hits hard',delay:.55,dmg:2.2,pel:1,spr:0,spd:700,len:22,col:'#8a6d3b',cost:120,mag:6,rel:1.4},
- smg:{n:'SMG',d:'Fast, weaker bullets',delay:.09,dmg:.7,pel:1,spr:.12,spd:650,len:26,col:'#2a2a2a',cost:200,mag:30,rel:1.3},
- shotgun:{n:'Shotgun',d:'5 pellets at once',delay:.7,dmg:1,pel:5,spr:.4,spd:550,len:32,col:'#6b3e1e',cost:350,mag:6,rel:1.8},
- assault:{n:'Assault Rifle',d:'Fast and accurate',delay:.12,dmg:1,pel:1,spr:.05,spd:750,len:30,col:'#3a4a2a',cost:500,mag:30,rel:1.5},
- rifle:{n:'Rifle',d:'Hits very hard',delay:.32,dmg:3,pel:1,spr:0,spd:900,len:36,col:'#1d3b2a',cost:700,mag:8,rel:1.6},
- sniper:{n:'Sniper',d:'One huge shot',delay:1,dmg:8,pel:1,spr:0,spd:1100,len:40,col:'#222',cost:1000,mag:4,rel:2.2},
- minigun:{n:'Minigun',d:'Bullet storm',delay:.05,dmg:.6,pel:1,spr:.25,spd:650,len:34,col:'#555',cost:1800,mag:120,rel:3.2}};
-const BOT_COST=1000,PLAYER_SPEED=220;
+ revolver:{n:'Revolver',d:'Slow but hits hard',delay:.55,dmg:2.2,pel:1,spr:0,spd:700,len:22,col:'#5b5f66',cost:120,mag:6,rel:1.4},
+ smg:{n:'SMG',d:'Fast, weaker bullets',delay:.09,dmg:.7,pel:1,spr:.12,spd:650,len:26,col:'#3a3d42',cost:200,mag:30,rel:1.3},
+ shotgun:{n:'Shotgun',d:'5 pellets at once',delay:.7,dmg:1,pel:5,spr:.4,spd:550,len:32,col:'#44484f',cost:350,mag:6,rel:1.8},
+ assault:{n:'Assault Rifle',d:'Fast and accurate',delay:.12,dmg:1,pel:1,spr:.05,spd:750,len:30,col:'#4a5a3a',cost:500,mag:30,rel:1.5},
+ rifle:{n:'Rifle',d:'Hits very hard',delay:.32,dmg:3,pel:1,spr:0,spd:900,len:36,col:'#3d4a3a',cost:700,mag:8,rel:1.6},
+ sniper:{n:'Sniper',d:'One huge shot',delay:1,dmg:8,pel:1,spr:0,spd:1100,len:40,col:'#30343a',cost:1000,mag:4,rel:2.2},
+ minigun:{n:'Minigun',d:'Bullet storm',delay:.05,dmg:.6,pel:1,spr:.25,spd:650,len:34,col:'#555a62',cost:1800,mag:120,rel:3.2},
+ tommy:{n:'Tommy Gun',d:'LIMITED EDITION - Gangster Night event',delay:.07,dmg:.9,pel:1,spr:.1,spd:700,len:30,col:'#33363d',cost:0,mag:50,rel:2,gold:1}};
+// Gun pictures: [x,y,w,h,part] drawn back to front. b = body (paintable), d = dark, m = metal, w = wood, g = gold
+const GD={
+ pistol:[[2,0,7,11,'d'],[2,-6,18,6,'b'],[18,-6,3,5,'m'],[3,-8,2,2,'d'],[17,-8,2,2,'d'],[9,0,5,2,'d']],
+ revolver:[[-4,0,7,11,'w'],[-2,-6,8,7,'b'],[6,-5,16,4,'m'],[2,-7,7,8,'m'],[-3,-9,3,3,'d']],
+ smg:[[-10,-5,10,3,'d'],[6,1,5,12,'d'],[-1,1,5,9,'d'],[0,-6,20,7,'b'],[20,-5,6,3,'m'],[4,-8,6,2,'d']],
+ shotgun:[[-14,-4,13,6,'w'],[8,-1,20,3,'m'],[8,-5,24,3,'m'],[-2,-6,12,7,'b'],[14,0,9,4,'w']],
+ assault:[[-12,-5,12,5,'d'],[6,1,5,11,'d'],[-1,1,4,8,'d'],[0,-6,18,7,'b'],[14,-6,8,6,'d'],[18,-5,12,3,'m'],[6,-9,8,3,'d']],
+ rifle:[[-16,-5,14,7,'w'],[6,0,4,7,'d'],[-2,-6,18,6,'b'],[14,-4,22,3,'m'],[4,-10,12,3,'d']],
+ sniper:[[-18,-5,16,7,'d'],[24,-1,2,8,'m'],[-2,-6,20,6,'b'],[16,-4,24,3,'m'],[2,-12,18,4,'d'],[19,-12,2,4,'m'],[10,-8,2,2,'d']],
+ minigun:[[-8,-2,8,4,'d'],[-2,4,12,9,'d'],[0,-8,14,12,'b'],[12,-7,22,3,'m'],[12,-3,22,3,'m'],[12,1,22,3,'m'],[32,-8,3,12,'d']],
+ tommy:[[-12,-5,12,5,'w'],[2,1,4,8,'w'],[5,1,10,10,'d'],[0,-6,18,7,'b'],[5,1,10,2,'g'],[18,0,4,8,'w'],[14,-6,8,6,'d'],[18,-5,12,3,'m'],[14,-6,2,6,'g']]};
+const BOT_COST=1000,PLAYER_SPEED=220,TRAP_COST=30;
+// ===== EVENT: Gangster Night. Change the date to run the event longer or shorter! =====
+const EVENT_END=new Date(2026,10,30,23,59,59).getTime(),NEED=10; // ends Nov 30 2026, 10 tokens needed
+function eventOn(){return Date.now()<EVENT_END}
 
-// ===== Saved stuff (safe coins, gold, armour, mods, paint, banners) =====
-let sv={safe:0,gold:0,own:[0,0,0,0,0],armour:-1,mag:0,rel:0,shirt:null,gunc:null,botc:null,ban:[],hung:[-1,-1,-1,-1]};
-try{Object.assign(sv,JSON.parse(localStorage.getItem('zs_save')||'{}'))}catch(e){}
+// ===== Saved stuff =====
+let sv={safe:0,gold:0,own:[0,0,0,0,0],armour:-1,mag:0,rel:0,shirt:null,gunc:null,botc:null,ban:[],hung:[-1,-1,-1,-1],
+ ap:[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],worn:[-1,-1,-1],trim:{d:0,c:'#f5f5f5'},tok:0,tommy:0,botName:'Botty'};
+let saved={};try{saved=JSON.parse(localStorage.getItem('zs_save')||'{}')}catch(e){}
+Object.assign(sv,saved);
+if(!saved.ap){for(let i=0;i<5;i++)if(sv.own[i])for(let s=0;s<3;s++)sv.ap[s][i]=1;if(sv.armour>=0)sv.worn=[sv.armour,sv.armour,sv.armour]} // old saves keep their armour
 while(sv.ban.length<BANNERS.length)sv.ban.push(0);
 while(sv.hung.length<4)sv.hung.push(-1);
 function save(){try{localStorage.setItem('zs_save',JSON.stringify(sv))}catch(e){}}
 const magSize=k=>Math.round(GUNS[k].mag*(1+.25*sv.mag)),relTime=k=>GUNS[k].rel*Math.pow(.85,sv.rel);
+function armRed(){let r=0;for(let s=0;s<3;s++){const t=sv.worn[s];if(t>=0)r+=(1-ARM[t].red)*SHARE[s]}return 1-r}
+const pc=(s,t)=>Math.round(ARM[t].cost*SHARE[s]);
 
 // ===== State =====
-let state='device',device='pc',skinIndex=0,T=0,gtab=0,selBan=-1;
-let garageFrom='menu'; // where BACK goes from the garage: 'menu' or 'shop'
+let state='device',device='pc',skinIndex=0,T=0,gtab=0,selBan=-1,selArm=null,garageFrom='menu';
 try{skinIndex=Math.min(+localStorage.getItem('skin')||0,playerSkins.length-1)}catch(e){}
-let player,bullets,zombies,score,coins,spawnTimer,shotTimer,up,owned,gun,bot,wave,spawned,bossSpawned,waveDelay,banner,ammo,reloadT,drops=[],note={t:0,txt:''};
+let player,bullets,zombies,score,coins,spawnTimer,shotTimer,up,owned,gun,bot,wave,spawned,bossSpawned,waveDelay,banner,ammo,reloadT,drops=[],traps=[],trapCount=0,note={t:0,txt:''};
 const joy={active:false,dx:0,dy:0},mouse={x:0,y:0,down:false,used:false},keys={};let fireHeld=false;
 
 function startGame(){
  player={x:W/2,y:H/2,hp:100,maxhp:100,angle:0};
- bullets=[];zombies=[];drops=[];note={t:0,txt:''};score=0;coins=0;shotTimer=0;spawnTimer=0;
- up={hp:0,rate:0,dmg:0};owned={pistol:1};gun='pistol';bot=null;
+ bullets=[];zombies=[];drops=[];traps=[];trapCount=0;note={t:0,txt:''};score=0;coins=0;shotTimer=0;spawnTimer=0;
+ up={hp:0,rate:0,dmg:0};owned={pistol:1};if(sv.tommy)owned.tommy=1;gun='pistol';bot=null;
  wave=1;spawned=0;bossSpawned=false;waveDelay=2.5;banner={t:2.5,txt:'WAVE 1'};
  ammo=magSize('pistol');reloadT=0;
  joy.active=false;joy.dx=joy.dy=0;fireHeld=false;mouse.down=false;state='play'}
@@ -73,28 +93,25 @@ function equip(k){gun=k;ammo=magSize(k);reloadT=0}
 function chooseSkin(i){skinIndex=i;try{localStorage.setItem('skin',i)}catch(e){}}
 function chooseDevice(d){device=d;state='menu'}
 function inRect(x,y,r){return x>r.x&&x<r.x+r.w&&y>r.y&&y<r.y+r.h}
+function placeTrap(){if(trapCount>0){trapCount--;traps.push({x:player.x,y:player.y,t:25})}}
+function renameBot(){mouse.down=false;const n=prompt('Name your bot (max 12 letters):',sv.botName);if(n!==null){const t=n.trim().slice(0,12);if(t){sv.botName=t;save()}}}
 const pauseR=()=>({x:W-106,y:16,w:90,h:40}),backR=()=>({x:W/2-100,y:H-58,w:200,h:44});
 const resumeR=()=>({x:W/2-210,y:H-58,w:200,h:44}),shopGarageR=()=>({x:W/2+10,y:H-58,w:200,h:44});
 function leaveGarage(){state=garageFrom;garageFrom='menu'}
 
-// ===== Generic item lists (used by shop + garage) =====
+// ===== Item lists (shop + garage mods) =====
 const NEON=['#ff2e93','#00e5ff','#b6ff00','#ffd400','#a855f7','#ff7a00'];
 function layout(its,top){
- const cols=W>800?3:W>520?2:1,rows=Math.ceil(its.length/cols),gap=8;
- const bw=Math.min(430,(W-40-(cols-1)*gap)/cols),bh=Math.max(40,Math.min(70,(H-top-76-(rows-1)*gap)/rows));
+ const cols=W>700?3:W>480?2:1,rows=Math.ceil(its.length/cols),gap=6;
+ const bw=Math.min(430,(W-40-(cols-1)*gap)/cols),bh=Math.max(36,Math.min(70,(H-top-76-(rows-1)*gap)/rows));
  const sx=W/2-(cols*bw+(cols-1)*gap)/2;
  return its.map((_,i)=>({x:sx+(i%cols)*(bw+gap),y:top+Math.floor(i/cols)*(bh+gap),w:bw,h:bh}))}
 function fit(s,x,y,mw,px,col,al,b){ctx.fillStyle=col;ctx.textAlign=al;let f=px;do{ctx.font=(b?'bold ':'')+f+'px sans-serif';f--}while(ctx.measureText(s).width>mw&&f>8);ctx.fillText(s,x,y)}
 function drawItems(its,rs,g){its.forEach((it,i)=>{
  const r=rs[i],[s,ok]=it.st();
- if(g){ // graffiti sticker style
-  ctx.fillStyle='#000';ctx.fillRect(r.x+4,r.y+4,r.w,r.h);
-  ctx.fillStyle=ok?'#0e5a30':'#1a1420';ctx.fillRect(r.x,r.y,r.w,r.h);
-  ctx.strokeStyle=it.hl?'#ffd400':NEON[i%6];ctx.lineWidth=it.hl?5:3;ctx.strokeRect(r.x,r.y,r.w,r.h);
-  ctx.fillStyle=NEON[i%6];ctx.fillRect(r.x,r.y,6,r.h)}
- else{
-  ctx.fillStyle=ok?'#1f6f3a':'#000a';ctx.fillRect(r.x,r.y,r.w,r.h);
-  ctx.strokeStyle=it.hl?'#ffd84a':'#fff4';ctx.lineWidth=2;ctx.strokeRect(r.x,r.y,r.w,r.h)}
+ if(g){ctx.fillStyle='#000';ctx.fillRect(r.x+4,r.y+4,r.w,r.h);ctx.fillStyle=ok?'#0e5a30':'#1a1420';ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.strokeStyle=it.hl?'#ffd400':NEON[i%6];ctx.lineWidth=it.hl?5:3;ctx.strokeRect(r.x,r.y,r.w,r.h);ctx.fillStyle=NEON[i%6];ctx.fillRect(r.x,r.y,6,r.h)}
+ else{ctx.fillStyle=ok?'#1f6f3a':'#000a';ctx.fillRect(r.x,r.y,r.w,r.h);ctx.strokeStyle=it.hl?'#ffd84a':'#fff4';ctx.lineWidth=2;ctx.strokeRect(r.x,r.y,r.w,r.h)}
  fit(it.n,r.x+(g?14:10),r.y+r.h/2-3,r.w*.58,16,'#fff','left',1);
  fit(s,r.x+r.w-10,r.y+r.h/2-3,r.w*.36,14,ok?'#ffd84a':'#aaa','right',1);
  fit(it.d,r.x+(g?14:10),r.y+r.h/2+15,r.w-24,12,'#ccc','left',0)})}
@@ -107,8 +124,9 @@ function items(){
  upg('hp','More Health','+25 max HP and heal up',30,25,10,()=>{player.maxhp+=25;player.hp=player.maxhp});
  upg('rate','Faster Shooting','Shoot quicker',40,30,8);
  upg('dmg','Stronger Bullets','Every bullet hits harder',60,50,8);
- for(const k in GUNS){const g=GUNS[k];L.push({n:g.n,d:g.d,hl:gun===k,st:()=>owned[k]?[gun===k?'EQUIPPED':'Tap to equip',0]:[g.cost+' coins',coins>=g.cost],buy(){if(owned[k])equip(k);else if(coins>=g.cost){coins-=g.cost;owned[k]=1;equip(k)}}})}
- L.push({n:'Bot Buddy',d:'Wanders around and shoots',st:()=>bot?['OWNED',0]:[BOT_COST+' coins',coins>=BOT_COST],buy(){if(!bot&&coins>=BOT_COST){coins-=BOT_COST;bot={x:player.x+40,y:player.y,tx:0,ty:0,t:0,cd:0,a:0}}}});
+ L.push({n:'Bear Trap  (you have '+trapCount+')',d:'Slows zombies. Place it: E key / TRAP button',st:()=>[TRAP_COST+' coins',coins>=TRAP_COST],buy(){if(coins>=TRAP_COST){coins-=TRAP_COST;trapCount++}}});
+ for(const k in GUNS){if(k==='tommy'&&!sv.tommy)continue;const g=GUNS[k];L.push({n:g.n,d:g.d,hl:gun===k,st:()=>owned[k]?[gun===k?'EQUIPPED':'Tap to equip',0]:[g.cost+' coins',coins>=g.cost],buy(){if(owned[k])equip(k);else if(coins>=g.cost){coins-=g.cost;owned[k]=1;equip(k)}}})}
+ L.push({n:'Bot Buddy',d:'Wanders around and shoots (name it in the garage)',st:()=>bot?['OWNED',0]:[BOT_COST+' coins',coins>=BOT_COST],buy(){if(!bot&&coins>=BOT_COST){coins-=BOT_COST;bot={x:player.x+40,y:player.y,tx:0,ty:0,t:0,cd:0,a:0}}}});
  L.push({n:'Safe',d:'Keep coins if you die. In safe: '+sv.safe,st:()=>['Deposit '+coins,coins>0],buy(){sv.safe+=coins;coins=0;save()}});
  return L}
 function shopPress(x,y){
@@ -117,20 +135,31 @@ function shopPress(x,y){
  if(inRect(x,y,resumeR()))state='play';
  else if(inRect(x,y,shopGarageR())){garageFrom='shop';state='garage'}}
 
-// ===== Garage (menu or shop, uses safe coins + gold) =====
-const TABS=['ARMOUR','MODS','PAINT','BANNERS'];
-function tabRects(){const w=Math.min(100,(W-40-24)/4),s=W/2-(4*w+24)/2;return TABS.map((_,i)=>({x:s+i*(w+8),y:62,w,h:34}))}
+// ===== Garage =====
+const TABS=['ARMOUR','TRIM','MODS','PAINT','BANNERS'],DESIGNS=['None','Stripes','Studs','Zigzag','Flames'];
+function tabRects(){const n=TABS.length,w=Math.min(100,(W-24-8*(n-1))/n),s=W/2-(n*w+8*(n-1))/2;return TABS.map((_,i)=>({x:s+i*(w+8),y:62,w,h:34}))}
 function garageItems(){
- if(gtab===0)return ARM.map((a,i)=>({n:a.n+' Armour',d:Math.round((1-a.red)*100)+'% less damage taken',hl:sv.armour===i,
-  st:()=>sv.own[i]?[sv.armour===i?'WORN (tap: off)':'Tap to wear',0]:[a.cost+' coins',sv.safe>=a.cost],
-  buy(){if(sv.own[i])sv.armour=sv.armour===i?-1:i;else if(sv.safe>=a.cost){sv.safe-=a.cost;sv.own[i]=1;sv.armour=i}save()}}));
  const m=(k,n,d)=>{const lv=sv[k],c=2+lv;return{n:n+'  Lv '+lv+'/5',d,st:()=>lv>=5?['MAX',0]:[c+' gold',sv.gold>=c],buy(){if(lv<5&&sv.gold>=c){sv.gold-=c;sv[k]++;save()}}}};
  return[m('mag','Bigger Magazines','+25% ammo per level (gold drops from bosses)'),m('rel','Faster Reload','15% quicker per level (gold drops from bosses)')]}
+// Armour collection grid
+function armLayout(){const cs=Math.max(30,Math.min(64,(W-130)/5,(H-262)/3)),gap=8,lw=76,tot=lw+5*cs+4*gap;return{cs,gap,lw,x0:W/2-tot/2,top:128,rh:cs+gap+4}}
+function armPress(x,y){const A=armLayout();
+ for(let s=0;s<3;s++)for(let t=0;t<5;t++){
+  const r={x:A.x0+A.lw+t*(A.cs+A.gap),y:A.top+s*A.rh,w:A.cs,h:A.cs};if(!inRect(x,y,r))continue;
+  if(sv.ap[s][t]>0){sv.worn[s]=sv.worn[s]===t?-1:t;selArm=null}
+  else if(selArm&&selArm[0]===s&&selArm[1]===t){const c=pc(s,t);if(sv.safe>=c){sv.safe-=c;sv.ap[s][t]++;sv.worn[s]=t;selArm=null}}
+  else selArm=[s,t];
+  save()}}
+// Trim designs + colours
+function trimLayout(){const g=6,sw=Math.max(26,Math.min(44,(W-60)/6-g,(H-230)/3)),x0=W/2-(6*(sw+g)-g)/2;return{g,sw,x0,y1:130,y2:130+sw+44}}
+function trimPress(x,y){const L=trimLayout();
+ for(let i=0;i<5;i++)if(inRect(x,y,{x:L.x0+i*(L.sw+L.g),y:L.y1,w:L.sw,h:L.sw}))sv.trim.d=i;
+ TC.forEach((c,i)=>{if(inRect(x,y,{x:L.x0+(i%6)*(L.sw+L.g),y:L.y2+Math.floor(i/6)*(L.sw+L.g),w:L.sw,h:L.sw}))sv.trim.c=c});save()}
+// Paint
 function paintLayout(){
  const gap=6,sw=Math.min(40,Math.max(24,(W-200)/PAL.length-gap)),x0=W/2-(PAL.length*(sw+gap)-gap)/2,sp=Math.min(76,(H-188)/3);
- return{gap,sw,x0,rows:[{label:'Clothes',key:'shirt',y:124},{label:'Guns',key:'gunc',y:124+sp},{label:'Bot helper',key:'botc',y:124+2*sp}]}}
-
-// Banner wall + collection layout
+ return{gap,sw,x0,name:{x:x0+100,y:124+2*sp-17,w:190,h:26},rows:[{label:'Clothes',key:'shirt',y:124},{label:'Guns',key:'gunc',y:124+sp},{label:'Bot helper',key:'botc',y:124+2*sp}]}}
+// Banner wall
 function banLayout(){
  const n=BANNERS.length,cols=6,rows=Math.ceil(n/cols),gap=6,top=128;
  const ch=Math.max(34,Math.min(70,(H-66-top-30-rows*gap)/(1+rows))),cw=ch*.8;
@@ -148,8 +177,10 @@ function banPress(x,y){
 function garagePress(x,y){
  tabRects().forEach((r,i)=>{if(inRect(x,y,r))gtab=i});
  if(inRect(x,y,backR())){leaveGarage();return}
- if(gtab<2){const its=garageItems(),rs=layout(its,108);its.forEach((it,i)=>{if(inRect(x,y,rs[i]))it.buy()})}
- else if(gtab===2){const P=paintLayout();P.rows.forEach(r=>PAL.forEach((c,j)=>{if(inRect(x,y,{x:P.x0+j*(P.sw+P.gap),y:r.y+8,w:P.sw,h:P.sw})){sv[r.key]=c;save()}}))}
+ if(gtab===0)armPress(x,y);
+ else if(gtab===1)trimPress(x,y);
+ else if(gtab===2){const its=garageItems(),rs=layout(its,108);its.forEach((it,i)=>{if(inRect(x,y,rs[i]))it.buy()})}
+ else if(gtab===3){const P=paintLayout();if(inRect(x,y,P.name))renameBot();P.rows.forEach(r=>PAL.forEach((c,j)=>{if(inRect(x,y,{x:P.x0+j*(P.sw+P.gap),y:r.y+8,w:P.sw,h:P.sw})){sv[r.key]=c;save()}}))}
  else banPress(x,y)}
 
 // ===== Menus =====
@@ -166,7 +197,9 @@ function press(x,y){
  else if(state==='over')state='menu';
  else if(state==='shop')shopPress(x,y);
  else if(state==='garage')garagePress(x,y);
- else if(state==='play'&&inRect(x,y,pauseR())){openShop();return true}}
+ else if(state==='play'){
+  if(inRect(x,y,pauseR())){openShop();return true}
+  if(device==='touch'){const c=ctl();if(Math.hypot(x-c.tx,y-c.ty)<c.tr*1.3){placeTrap();return true}}}}
 
 // ===== PC controls =====
 addEventListener('keydown',e=>{
@@ -175,15 +208,15 @@ addEventListener('keydown',e=>{
  else if(state==='menu'){const n=parseInt(e.key);if(n>=1&&n<=playerSkins.length)chooseSkin(n-1);if(k==='enter')startGame();if(k==='g'){garageFrom='menu';state='garage'}}
  else if(state==='garage'){if(k==='escape')leaveGarage()}
  else if(state==='over'){if(k==='enter')state='menu'}
- else if(state==='play'){if(k==='p'||k==='escape')openShop()}
+ else if(state==='play'){if(k==='p'||k==='escape')openShop();if(k==='e')placeTrap()}
  else if(state==='shop'){if(k==='p'||k==='escape'||k==='enter')state='play';if(k==='g'){garageFrom='shop';state='garage'}}});
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.used=true});
 canvas.addEventListener('mousedown',e=>{mouse.used=true;if(!press(e.clientX,e.clientY)&&state==='play')mouse.down=true});
 addEventListener('mouseup',()=>mouse.down=false);
 
-// ===== Touch controls: joystick bottom-left, FIRE bottom-right =====
-function ctl(){const r=Math.max(50,Math.min(65,W/8));return{jx:r+50,jy:H-r-50,jr:r,bx:W-r-50,by:H-r-50,br:r*.85}}
+// ===== Touch controls: joystick bottom-left, FIRE + TRAP bottom-right =====
+function ctl(){const r=Math.max(50,Math.min(65,W/8)),br=r*.85,tr=br*.6;return{jx:r+50,jy:H-r-50,jr:r,bx:W-r-50,by:H-r-50,br,tr,tx:W-r-50,ty:H-r-50-br-tr-14}}
 function handleTouch(e){
  e.preventDefault();
  if(e.type==='touchstart')for(const t of e.changedTouches)if(press(t.clientX,t.clientY))return;
@@ -196,6 +229,14 @@ function handleTouch(e){
 
 // ===== Game logic =====
 function nearest(x,y,max){let n=null,best=max;for(const z of zombies){const d=Math.hypot(z.x-x,z.y-y);if(d<best){best=d;n=z}}return n}
+function randTier(){let r=Math.random()*ARM.reduce((a,b)=>a+b.ch,0);for(let i=0;i<5;i++){r-=ARM[i].ch;if(r<=0)return i}return 0}
+function dropArm(x,y,t){drops.push({kind:'arm',x,y,slot:Math.floor(Math.random()*3),tier:t,ttl:30})}
+function addTok(n){
+ if(!eventOn()||sv.tommy)return;
+ sv.tok+=n;
+ if(sv.tok>=NEED){sv.tommy=1;owned.tommy=1;note={t:5,txt:'LIMITED TOMMY GUN UNLOCKED! (see shop)'}}
+ else if(note.t<=0)note={t:1.5,txt:'+'+n+' Event Token  ('+sv.tok+'/'+NEED+')'};
+ save()}
 function spawn(boss){
  const side=Math.floor(Math.random()*4),x=side===0?-60:side===1?W+60:Math.random()*W,y=side===2?-60:side===3?H+60:Math.random()*H;
  const pool=zombieTypes.slice(0,Math.min(zombieTypes.length,3+Math.floor((wave-1)/10)));
@@ -203,7 +244,7 @@ function spawn(boss){
  let arm=-1;
  if(!boss){const r=Math.random();let acc=0;for(let i=4;i>=0;i--){acc+=ARM[i].ch;if(r<acc){arm=i;break}}}
  const hp=boss?30+wave*12:t.hp*(1+.04*(wave-1))*(arm>=0?1+.5*(arm+1):1);
- zombies.push({x,y,hp,max:hp,boss,arm,speed:boss?55+wave:(50+Math.random()*40+Math.min(wave*3,60))*t.speed,size:boss?170:t.size,skin:t.skin,shirt:t.shirt,img:t.img,flip:false,ph:Math.random()*6})}
+ zombies.push({x,y,hp,max:hp,boss,arm,speed:boss?55+wave:(50+Math.random()*40+Math.min(wave*3,60))*t.speed,size:boss?170:t.size,skin:t.skin,shirt:t.shirt,img:t.img,flip:false,ph:Math.random()*6,slow:0})}
 
 function update(dt){
  let mx=0,my=0;
@@ -213,11 +254,15 @@ function update(dt){
  player.x=Math.max(20,Math.min(W-20,player.x+mx*PLAYER_SPEED*dt));
  player.y=Math.max(40,Math.min(H-20,player.y+my*PLAYER_SPEED*dt));
 
- // Collect banners by walking over them
+ // Pick up drops (banners + armour pieces) by walking over them
  for(let k=drops.length-1;k>=0;k--){const d=drops[k];
+  if(d.ttl!==undefined){d.ttl-=dt;if(d.ttl<=0){drops.splice(k,1);continue}}
   if(Math.hypot(player.x-d.x,player.y-d.y)<45){
-   sv.ban[d.i]++;save();note={t:3.5,txt:(sv.ban[d.i]===1?'NEW BANNER: ':'Banner again: ')+BANNERS[d.i].n};drops.splice(k,1)}}
+   if(d.kind==='arm'){sv.ap[d.slot][d.tier]++;note={t:3.5,txt:'FOUND: '+ARM[d.tier].n+' '+SLOTN[d.slot]+' (wear it in the garage)'}}
+   else{sv.ban[d.i]++;note={t:3.5,txt:(sv.ban[d.i]===1?'NEW BANNER: ':'Banner again: ')+BANNERS[d.i].n}}
+   save();drops.splice(k,1)}}
  note.t-=dt;
+ for(let k=traps.length-1;k>=0;k--){traps[k].t-=dt;if(traps[k].t<=0)traps.splice(k,1)}
 
  let shooting=false;
  if(device==='touch'){
@@ -232,7 +277,7 @@ function update(dt){
  else if(shooting&&shotTimer<=0&&ammo>0){
   shotTimer=delay;ammo--;
   for(let i=0;i<G.pel;i++){const a=player.angle+(Math.random()-.5)*G.spr;
-   bullets.push({x:player.x+Math.cos(player.angle)*G.len,y:player.y+Math.sin(player.angle)*G.len,vx:Math.cos(a)*G.spd,vy:Math.sin(a)*G.spd,life:1.2,dmg})}
+   bullets.push({x:player.x+Math.cos(player.angle)*G.len,y:player.y+Math.sin(player.angle)*G.len,vx:Math.cos(a)*G.spd,vy:Math.sin(a)*G.spd,life:1.2,dmg,c:G.gold?'#ff9f1c':null})}
   if(ammo<=0)reloadT=relTime(gun)}
  if(keys.r&&reloadT<=0&&ammo<magSize(gun))reloadT=relTime(gun);
 
@@ -255,18 +300,26 @@ function update(dt){
   const nz=(wave-1)%10===0&&3+(wave-1)/10<=zombieTypes.length;
   banner={t:3,txt:'WAVE '+wave+(nz?' - NEW ZOMBIE!':'')}}
 
- const red=sv.armour>=0?ARM[sv.armour].red:1;
+ const red=armRed();
  for(const z of zombies){
   const dx=player.x-z.x,dy=player.y-z.y,d=Math.hypot(dx,dy)||1;
-  z.x+=dx/d*z.speed*dt;z.y+=dy/d*z.speed*dt;z.flip=dx<0;
+  for(const tr of traps)if(Math.hypot(z.x-tr.x,z.y-tr.y)<30)z.slow=1.5; // bear trap slows them
+  let sp=z.speed;if(z.slow>0){z.slow-=dt;sp*=z.boss?.6:.3}
+  z.x+=dx/d*sp*dt;z.y+=dy/d*sp*dt;z.flip=dx<0;
   if(d<(z.boss?z.size*.45:35))player.hp-=(z.boss?35:20)*red*dt;
   for(const b of bullets)if(b.life>0&&Math.hypot(b.x-z.x,b.y-z.y)<z.size*.4){z.hp-=b.dmg;b.life=0}}
  zombies=zombies.filter(z=>{
   if(z.hp>0)return true;
+  const ox=Math.max(30,Math.min(W-30,z.x)),oy=Math.max(80,Math.min(H-30,z.y));
   if(z.boss){
-   coins+=50+wave*5;sv.gold+=1+Math.floor(wave/10);save();score+=100;
-   drops.push({x:Math.max(30,Math.min(W-30,z.x)),y:Math.max(80,Math.min(H-30,z.y)),i:(wave-1)%BANNERS.length})}
-  else{coins+=5;score+=10}
+   coins+=50+wave*5;sv.gold+=1+Math.floor(wave/10);score+=100;
+   drops.push({kind:'ban',x:ox,y:oy,i:(wave-1)%BANNERS.length});
+   if(Math.random()<.6)dropArm(Math.max(30,Math.min(W-30,ox+50)),oy,Math.min(4,randTier()+1));
+   addTok(3);save()}
+  else{
+   coins+=5;score+=10;
+   if(Math.random()<(z.arm>=0?.22:.025))dropArm(ox,oy,z.arm>=0?z.arm:randTier()); // small chance to drop armour
+   if(Math.random()<.06)addTok(1)}
   return false});
  if(player.hp<=0){player.hp=0;state='over'}}
 
@@ -296,6 +349,40 @@ function drawBanner(x,y,w,h,b,lock){
  else{ctx.fillStyle=b.c2;ctx.fillRect(x+2,y+5,w-4,h*.09);symbol(b,x+w/2,y+h*.48,w*.28)}
  ctx.restore()}
 
+// ----- Armour pieces (helmet / chestplate / boots) with trim designs -----
+function pat(d,x,y,w,h,c){
+ ctx.fillStyle=c;ctx.strokeStyle=c;ctx.lineWidth=w*.1;
+ if(d===1)for(let i=0;i<3;i++)ctx.fillRect(x+w*(.14+.3*i),y,w*.14,h);
+ else if(d===2)for(let i=0;i<2;i++)for(let j=0;j<2;j++){ctx.beginPath();ctx.arc(x+w*(.3+.4*i),y+h*(.3+.4*j),Math.min(w,h)*.12,0,7);ctx.fill()}
+ else if(d===3){ctx.beginPath();for(let i=0;i<=5;i++)ctx.lineTo(x+w*i/5,y+h*(i%2?.7:.3));ctx.stroke()}
+ else if(d===4)for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(x+w*i/3,y+h);ctx.lineTo(x+w*(i+.5)/3,y+h*.3);ctx.lineTo(x+w*(i+1)/3,y+h);ctx.fill()}}
+// m: 0 normal (with your trim), 1 locked (grey), 2 no trim (zombie armour)
+function drawPiece(sl,t,cx,cy,s,m){
+ const lock=m===1,tr=sv.trim,col=lock?'#3b3b3b':ARM[t].c;
+ ctx.save();ctx.translate(cx,cy);ctx.scale(s,s);ctx.lineWidth=.07;ctx.strokeStyle='#111';
+ const fin=()=>{ctx.fillStyle=col;ctx.fill();ctx.stroke();if(!lock&&m!==2&&tr.d){ctx.save();ctx.clip();pat(tr.d,-.6,-.5,1.2,1,tr.c);ctx.restore()}};
+ ctx.beginPath();
+ if(sl===0){ctx.arc(0,.05,.5,Math.PI,0);ctx.closePath();fin();
+  ctx.fillStyle=col;ctx.beginPath();ctx.rect(-.56,.05,1.12,.15);ctx.fill();ctx.stroke();ctx.fillStyle='#111';ctx.fillRect(-.3,-.05,.6,.07)}
+ else if(sl===1){ctx.moveTo(-.5,-.45);ctx.lineTo(.5,-.45);ctx.lineTo(.42,.5);ctx.lineTo(-.42,.5);ctx.closePath();fin()}
+ else{for(const b0 of[-.56,.08]){ctx.beginPath();ctx.rect(b0,-.2,.4,.5);fin();ctx.beginPath();ctx.rect(b0-.06,.3,.58,.16);fin()}}
+ ctx.restore()}
+
+// ----- Gun pictures -----
+function drawGun(k,col){
+ const CM={d:'#2b2b2b',m:'#9aa0a8',w:'#8a5a2b',g:'#ffd400'};ctx.lineWidth=1.5;ctx.strokeStyle='#111';
+ for(const[x,y,w,h,c]of GD[k]){ctx.fillStyle=c==='b'?col:CM[c];ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);
+  if(c==='b'||c==='m'){ctx.fillStyle='rgba(255,255,255,.28)';ctx.fillRect(x+1,y+1,w-2,Math.min(2,h/3))}}}
+
+function drawTrap(x,y,t){
+ if(t<4&&Math.floor(t*6)%2)return;
+ ctx.save();ctx.translate(x,y);ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.fillStyle='#7b8088';
+ ctx.beginPath();ctx.arc(0,0,16,0,Math.PI);ctx.fill();ctx.stroke();
+ ctx.beginPath();ctx.arc(0,0,16,Math.PI,2*Math.PI);ctx.fill();ctx.stroke();
+ ctx.fillStyle='#d8dce2';
+ for(let i=-3;i<=2;i++){ctx.beginPath();ctx.moveTo(i*5+1,0);ctx.lineTo(i*5+3.5,-7);ctx.lineTo(i*5+6,0);ctx.fill();ctx.beginPath();ctx.moveTo(i*5+1,0);ctx.lineTo(i*5+3.5,7);ctx.lineTo(i*5+6,0);ctx.fill()}
+ ctx.fillStyle='#444';ctx.beginPath();ctx.arc(0,0,3,0,7);ctx.fill();ctx.restore()}
+
 // ----- Graffiti garage helpers -----
 const GFONT='Impact,"Arial Black",sans-serif';
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -303,18 +390,15 @@ let gbg=null;
 function getBG(){
  if(gbg&&gbg.width===W&&gbg.height===H)return gbg;
  const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d'),r=rng(11);
- // brick wall
  g.fillStyle='#2a2422';g.fillRect(0,0,W,H);
  const bh=26,bw=60;
  for(let y=0,row=0;y<H;y+=bh,row++)for(let x=-(row%2)*bw/2;x<W;x+=bw){const s=r()*30-15;g.fillStyle='rgb('+Math.round(78+s)+','+Math.round(54+s*.7)+','+Math.round(46+s*.6)+')';g.fillRect(x+1,y+1,bw-2,bh-2)}
  g.fillStyle='rgba(0,0,0,.5)';g.fillRect(0,0,W,H);
- // paint splats with drips
  for(let i=0;i<10;i++){
   const x=r()*W,y=r()*H*.8,col=NEON[i%6];g.globalAlpha=.45;g.fillStyle=col;
   g.beginPath();g.arc(x,y,18+r()*34,0,7);g.fill();
   for(let k=0;k<10;k++){g.beginPath();g.arc(x+(r()-.5)*100,y+(r()-.5)*100,2+r()*6,0,7);g.fill()}
   for(let k=0;k<3;k++){const dx=x+(r()-.5)*40,dl=30+r()*100;g.fillRect(dx-2,y,4,dl);g.beginPath();g.arc(dx,y+dl,4,0,7);g.fill()}}
- // big spray tags
  const tags=['ZOMBIE CREW','SURVIVE','R.I.P.','BRAINS','WAVE 99','NO FEAR'];
  g.textAlign='center';g.lineJoin='round';
  tags.forEach((t,i)=>{
@@ -322,9 +406,7 @@ function getBG(){
   g.save();g.translate(x,y);g.rotate((r()-.5)*.5);g.globalAlpha=.55;
   g.font='italic 900 '+size+'px '+GFONT;g.lineWidth=size*.2;g.strokeStyle='#000';g.strokeText(t,0,0);
   g.fillStyle=NEON[(i*2+1)%6];g.fillText(t,0,0);g.restore()});
- g.globalAlpha=1;
- gbg=c;return c}
-
+ g.globalAlpha=1;gbg=c;return c}
 function stxt(s,x,y,font,fill,al){ctx.font=font;ctx.textAlign=al||'center';ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='#000';ctx.strokeText(s,x,y);ctx.fillStyle=fill;ctx.fillText(s,x,y)}
 function tagTitle(text,x,y,size,c1,c2,rot){
  ctx.save();ctx.translate(x,y);ctx.rotate(rot||0);ctx.textAlign='center';ctx.lineJoin='round';
@@ -352,25 +434,27 @@ function drawZombie(z){
   ci(0,-18,22,z.skin);ci(-8,-22,6,'#fff');ci(8,-22,6,'#fff');ci(-6,-22,2.5,z.boss?'#e11':'#111');ci(10,-22,2.5,z.boss?'#e11':'#111');
   ctx.fillStyle='#111';ctx.beginPath();ctx.arc(2,-8,6,0,Math.PI);ctx.fill();
   ci(-8,-38,8,'#f3a6c8');
-  if(z.arm>=0){const c=ARM[z.arm].c;bx(-23,-44,46,13,c);bx(-17,-2,34,9,c)}
+  if(z.arm>=0){drawPiece(1,z.arm,0,12,36,2);drawPiece(0,z.arm,0,-24,44,2)}
   if(z.boss){ctx.fillStyle='#ffd400';ctx.beginPath();ctx.moveTo(-20,-42);ctx.lineTo(-20,-62);ctx.lineTo(-10,-50);ctx.lineTo(0,-64);ctx.lineTo(10,-50);ctx.lineTo(20,-62);ctx.lineTo(20,-42);ctx.closePath();ctx.fill();ctx.stroke()}}
  ctx.restore();
+ if(z.slow>0){ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('slowed',z.x,z.y-z.size*.6)}
  if(z.boss){const bw=140,by=z.y-z.size*.9;ctx.fillStyle='#000a';ctx.fillRect(z.x-bw/2,by,bw,10);ctx.fillStyle='#e11';ctx.fillRect(z.x-bw/2+1,by+1,(bw-2)*Math.max(0,z.hp)/z.max,8)}}
 
-function drawPlayer(x,y,a,skin,sc,gk,ar,pt){
+function drawPlayer(x,y,a,skin,sc,gk,pt){
  ctx.save();ctx.translate(x,y);ctx.scale(sc,sc);ctx.strokeStyle='#111';ctx.lineWidth=3;
  const G=GUNS[gk],gc=(pt&&sv.gunc)||G.col,sh=(pt&&sv.shirt)||skin.color||'#3b82f6';
  if(skin.img&&skin.img.complete&&skin.img.naturalWidth){
   const h=60,w=h*skin.img.naturalWidth/skin.img.naturalHeight;ctx.save();if(Math.cos(a)<0)ctx.scale(-1,1);ctx.drawImage(skin.img,-w/2,-h/2-10,w,h);ctx.restore()}
  else{
   bx(-10,-8,20,26,sh);ci(0,-20,12,'#f1c27d');ci(4*(Math.cos(a)<0?-1:1),-22,2,'#111');
-  if(ar>=0){const c=ARM[ar].c;bx(-13,-34,26,10,c);bx(-10,-8,20,10,c)}}
+  if(pt){const w=sv.worn;if(w[2]>=0)drawPiece(2,w[2],0,21,20,0);if(w[1]>=0)drawPiece(1,w[1],0,5,24,0);if(w[0]>=0)drawPiece(0,w[0],0,-22,28,0)}}
  ctx.rotate(a);if(Math.cos(a)<0)ctx.scale(1,-1);
- bx(0,-3,G.len,6,gc);bx(2,3,6,9,gc);ctx.restore()}
+ drawGun(gk,gc);ctx.restore()}
 
-function drawBotAt(x,y,a,col){
+function drawBotAt(x,y,a,col,name){
  ctx.save();ctx.translate(x,y);ctx.strokeStyle='#111';ctx.lineWidth=3;
  bx(-1,-34,2,12,'#aaa');ci(0,-35,4,'#f33');bx(-12,-22,24,24,col||'#9aa5b1');ci(-5,-12,3,'#0ff');ci(5,-12,3,'#0ff');
+ if(name)stxt(name,0,-46,'bold 12px sans-serif','#fff');
  ctx.rotate(a);bx(8,-2,16,5,'#333');ctx.restore()}
 
 function drawTouchControls(){
@@ -380,7 +464,9 @@ function drawTouchControls(){
  ctx.fillStyle='rgba(255,255,255,.45)';ctx.beginPath();ctx.arc(c.jx+joy.dx*c.jr,c.jy+joy.dy*c.jr,c.jr*.4,0,7);ctx.fill();
  ctx.fillStyle=fireHeld?'rgba(255,80,80,.9)':'rgba(214,59,59,.6)';
  ctx.beginPath();ctx.arc(c.bx,c.by,c.br,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.stroke();
- ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 22px sans-serif';ctx.fillText('FIRE',c.bx,c.by+8)}
+ ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 22px sans-serif';ctx.fillText('FIRE',c.bx,c.by+8);
+ ctx.fillStyle=trapCount>0?'rgba(150,150,160,.75)':'rgba(90,90,95,.5)';ctx.beginPath();ctx.arc(c.tx,c.ty,c.tr,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.stroke();
+ ctx.fillStyle='#fff';ctx.font='bold 13px sans-serif';ctx.fillText('TRAP '+trapCount,c.tx,c.ty+5)}
 
 function drawDeviceScreen(){
  const R=deviceRects();ctx.textAlign='center';ctx.fillStyle='#fff';
@@ -396,10 +482,12 @@ function drawMenu(){
   const x=L.startX+i*(L.size+L.gap);
   ctx.fillStyle='#00000066';ctx.fillRect(x,L.y,L.size,L.size);
   ctx.strokeStyle=i===skinIndex?'#ffd84a':'#ffffff44';ctx.lineWidth=i===skinIndex?4:2;ctx.strokeRect(x,L.y,L.size,L.size);
-  drawPlayer(x+L.size/2-6*L.size/90,L.y+L.size/2+8*L.size/90,0,s,L.size/90,'pistol',-1,false);
+  drawPlayer(x+L.size/2-6*L.size/90,L.y+L.size/2+8*L.size/90,0,s,L.size/90,'pistol',false);
   ctx.fillStyle='#fff';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText(s.name,x+L.size/2,L.y+L.size+20)});
  button(L.play,'PLAY','#d63b3b',26);button(L.garage,'GARAGE','#3b82f6',26);
- button(L.change,'Device: '+(device==='touch'?'Touch':'PC')+' (change)','#00000088',14)}
+ button(L.change,'Device: '+(device==='touch'?'Touch':'PC')+' (change)','#00000088',14);
+ const ev=sv.tommy?'LIMITED EDITION TOMMY GUN unlocked! Equip it in the in-game shop.':eventOn()?'EVENT: Gangster Night - zombies drop tokens ('+sv.tok+'/'+NEED+') for a LIMITED EDITION Tommy Gun! Ends Nov 30':'Gangster Night event is over';
+ fit(ev,W/2,H-14,W-30,16,sv.tommy||eventOn()?'#ffd400':'#aaa','center',1)}
 
 function drawGarage(){
  ctx.drawImage(getBG(),0,0);
@@ -410,9 +498,39 @@ function drawGarage(){
   ctx.fillStyle='#000';ctx.fillRect(r.x+3,r.y+3,r.w,r.h);
   ctx.fillStyle=on?'#ff2e93':'#16121c';ctx.fillRect(r.x,r.y,r.w,r.h);
   ctx.strokeStyle=on?'#000':NEON[i];ctx.lineWidth=3;ctx.strokeRect(r.x,r.y,r.w,r.h);
-  ctx.font='italic 900 15px '+GFONT;ctx.textAlign='center';ctx.fillStyle='#fff';ctx.fillText(TABS[i],r.x+r.w/2,r.y+23)});
- if(gtab<2){const its=garageItems();drawItems(its,layout(its,108),true)}
- else if(gtab===2){
+  fit(TABS[i],r.x+r.w/2,r.y+22,r.w-6,14,'#fff','center',1)});
+ if(gtab===0){ // armour collection
+  const A=armLayout();let owned2=0;
+  for(let t=0;t<5;t++)stxt(ARM[t].n,A.x0+A.lw+t*(A.cs+A.gap)+A.cs/2,A.top-6,'bold 11px sans-serif','#fff');
+  for(let s=0;s<3;s++){
+   stxt(SLOTN[s],A.x0,A.top+s*A.rh+A.cs/2+5,'italic 900 15px '+GFONT,NEON[s+1],'left');
+   for(let t=0;t<5;t++){
+    const x=A.x0+A.lw+t*(A.cs+A.gap),y=A.top+s*A.rh,n=sv.ap[s][t],own=n>0,worn=sv.worn[s]===t,sel=selArm&&selArm[0]===s&&selArm[1]===t;
+    if(own)owned2++;
+    ctx.fillStyle='#000';ctx.fillRect(x+3,y+3,A.cs,A.cs);ctx.fillStyle=own?'#1d2a22':'#14111a';ctx.fillRect(x,y,A.cs,A.cs);
+    ctx.strokeStyle=worn?'#ffd400':sel?'#fff':NEON[t%6];ctx.lineWidth=worn?4:3;ctx.strokeRect(x,y,A.cs,A.cs);
+    drawPiece(s,t,x+A.cs/2,y+A.cs/2,A.cs*.62,own?0:1);
+    if(!own)stxt('?',x+A.cs-6,y+A.cs-6,'bold 14px sans-serif','#aaa','right');
+    else if(n>1)stxt('x'+n,x+A.cs-4,y+A.cs-5,'bold 13px sans-serif','#fff','right')}}
+  const iy=A.top+3*A.rh+10;let info='Tap a piece to wear it. Pieces drop from zombies!';
+  if(selArm){const[s,t]=selArm;info=ARM[t].n+' '+SLOTN[s]+': tap again to buy for '+pc(s,t)+' coins'}
+  fit(info,W/2,iy,W-30,15,'#ffd400','center',1);
+  fit('Protection: '+Math.round((1-armRed())*100)+'% less damage     Collection '+owned2+'/15',W/2,iy+22,W-30,14,'#fff','center',1)}
+ else if(gtab===1){ // trim
+  const L=trimLayout();
+  stxt('Design',L.x0,L.y1-8,'italic 900 18px '+GFONT,NEON[1],'left');
+  for(let i=0;i<5;i++){
+   const x=L.x0+i*(L.sw+L.g);ctx.fillStyle='#000';ctx.fillRect(x+3,L.y1+3,L.sw,L.sw);ctx.fillStyle='#2a2630';ctx.fillRect(x,L.y1,L.sw,L.sw);
+   if(i)pat(i,x+4,L.y1+4,L.sw-8,L.sw-8,sv.trim.c);else stxt('×',x+L.sw/2,L.y1+L.sw/2+7,'bold 20px sans-serif','#fff');
+   ctx.strokeStyle=sv.trim.d===i?'#ffd400':'#000';ctx.lineWidth=sv.trim.d===i?4:2;ctx.strokeRect(x,L.y1,L.sw,L.sw);
+   fit(DESIGNS[i],x+L.sw/2,L.y1+L.sw+14,L.sw+L.g,11,'#fff','center',1)}
+  stxt('Colour',L.x0,L.y2-8,'italic 900 18px '+GFONT,NEON[2],'left');
+  TC.forEach((c,i)=>{const x=L.x0+(i%6)*(L.sw+L.g),y=L.y2+Math.floor(i/6)*(L.sw+L.g);
+   ctx.fillStyle='#000';ctx.fillRect(x+3,y+3,L.sw,L.sw);ctx.fillStyle=c;ctx.fillRect(x,y,L.sw,L.sw);
+   ctx.strokeStyle=sv.trim.c===c?'#ffd400':'#000';ctx.lineWidth=sv.trim.c===c?4:2;ctx.strokeRect(x,y,L.sw,L.sw)});
+  const px=Math.min(100,L.x0-50);if(px>=40)drawPlayer(px,H/2+20,0,playerSkins[skinIndex],1.6,'pistol',true)}
+ else if(gtab===2){const its=garageItems();drawItems(its,layout(its,108),true)}
+ else if(gtab===3){
   const P=paintLayout();
   P.rows.forEach((r,ri)=>{
    stxt(r.label,P.x0,r.y+2,'italic 900 18px '+GFONT,NEON[ri+1],'left');
@@ -422,7 +540,9 @@ function drawGarage(){
     ctx.fillStyle=c||'#555';ctx.fillRect(x,y,P.sw,P.sw);
     if(!c){ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 18px sans-serif';ctx.fillText('×',x+P.sw/2,y+P.sw/2+6)}
     ctx.strokeStyle=sv[r.key]===c?'#ffd400':'#000';ctx.lineWidth=sv[r.key]===c?4:2;ctx.strokeRect(x,y,P.sw,P.sw)})});
-  drawPlayer(44,H/2+10,0,playerSkins[skinIndex],1.3,'pistol',sv.armour,true);drawBotAt(W-44,H/2+30,0,sv.botc)}
+  const nr=P.name;ctx.fillStyle='#000a';ctx.fillRect(nr.x,nr.y,nr.w,nr.h);ctx.strokeStyle=NEON[3];ctx.lineWidth=2;ctx.strokeRect(nr.x,nr.y,nr.w,nr.h);
+  fit('Name: '+sv.botName+'  (tap to rename)',nr.x+nr.w/2,nr.y+18,nr.w-8,13,'#fff','center',1);
+  drawPlayer(44,H/2+10,0,playerSkins[skinIndex],1.3,'pistol',true);drawBotAt(W-44,H/2+30,0,sv.botc,sv.botName)}
  else{
   const B=banLayout(),got=sv.ban.filter(n=>n>0).length;
   stxt('Garage wall  (tap a banner to take it down)',W/2,B.top-8,'bold 14px sans-serif','#fff');
@@ -449,32 +569,40 @@ function draw(){
  if(state==='device'){drawDeviceScreen();return}
  if(state==='menu'){drawMenu();return}
  if(state==='garage'){drawGarage();return}
- // banner pickups
+ traps.forEach(t=>drawTrap(t.x,t.y,t.t));
  drops.forEach(d=>{
   const bob=Math.sin(T*4)*4;
-  ctx.fillStyle='rgba(255,216,64,'+(.18+.1*Math.sin(T*5))+')';ctx.beginPath();ctx.arc(d.x,d.y,34,0,7);ctx.fill();
-  drawBanner(d.x-16,d.y-38+bob,32,44,BANNERS[d.i],false)});
+  if(d.kind==='arm'){
+   if(d.ttl<5&&Math.floor(d.ttl*6)%2)return;
+   ctx.fillStyle='rgba(255,255,255,'+(.15+.1*Math.sin(T*5))+')';ctx.beginPath();ctx.arc(d.x,d.y,30,0,7);ctx.fill();
+   drawPiece(d.slot,d.tier,d.x,d.y-4+bob,38,0)}
+  else{
+   ctx.fillStyle='rgba(255,216,64,'+(.18+.1*Math.sin(T*5))+')';ctx.beginPath();ctx.arc(d.x,d.y,34,0,7);ctx.fill();
+   drawBanner(d.x-16,d.y-38+bob,32,44,BANNERS[d.i],false)}});
  zombies.slice().sort((a,b)=>a.y-b.y).forEach(drawZombie);
- ctx.fillStyle='#ffd84a';bullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,7);ctx.fill()});
- if(bot)drawBotAt(bot.x,bot.y,bot.a,sv.botc);
- drawPlayer(player.x,player.y,player.angle,playerSkins[skinIndex],1,gun,sv.armour,true);
+ bullets.forEach(b=>{ctx.fillStyle=b.c||'#ffd84a';ctx.beginPath();ctx.arc(b.x,b.y,b.c?5:4,0,7);ctx.fill()});
+ if(bot)drawBotAt(bot.x,bot.y,bot.a,sv.botc,sv.botName);
+ drawPlayer(player.x,player.y,player.angle,playerSkins[skinIndex],1,gun,true);
  if(device==='touch')drawTouchControls();
  ctx.textAlign='left';ctx.fillStyle='#000a';ctx.fillRect(16,16,204,20);
  ctx.fillStyle='#d63b3b';ctx.fillRect(18,18,200*player.hp/player.maxhp,16);
  ctx.fillStyle='#ffd84a';ctx.font='bold 18px sans-serif';ctx.fillText('Coins: '+coins+'   Gold: '+sv.gold,16,62);
  ctx.fillStyle='#fff';ctx.fillText(reloadT>0?'RELOADING...':'Ammo: '+ammo+'/'+magSize(gun),16,86);
- ctx.textAlign='center';ctx.font='bold 26px sans-serif';ctx.fillText('Wave '+wave,W/2,34);
+ let hy=108;
+ if(trapCount>0){ctx.fillStyle='#ccc';ctx.font='bold 14px sans-serif';ctx.fillText('Traps: '+trapCount+(device==='pc'?'  (press E)':''),16,hy);hy+=20}
+ if(eventOn()&&!sv.tommy){ctx.fillStyle='#ffd400';ctx.font='bold 14px sans-serif';ctx.fillText('Event tokens: '+sv.tok+'/'+NEED,16,hy)}
+ ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 26px sans-serif';ctx.fillText('Wave '+wave,W/2,34);
  ctx.font='14px sans-serif';ctx.fillText(bossSpawned?'BOSS FIGHT!':(10-spawned+zombies.length)+' zombies left',W/2,54);
- if(drops.length){ctx.fillStyle='#ffd84a';ctx.font='bold 16px sans-serif';ctx.fillText('Walk over the banner to collect it!',W/2,76)}
+ if(drops.length){ctx.fillStyle='#ffd84a';ctx.font='bold 16px sans-serif';ctx.fillText('Walk over drops to collect them!',W/2,76)}
  button(pauseR(),'SHOP','#000a',18);
  if(banner.t>0){ctx.globalAlpha=Math.min(1,banner.t);ctx.fillStyle='#fff';ctx.font='bold 48px sans-serif';ctx.textAlign='center';ctx.fillText(banner.txt,W/2,H/3);ctx.globalAlpha=1}
- if(note.t>0){ctx.globalAlpha=Math.min(1,note.t);ctx.fillStyle='#ffd84a';ctx.font='bold 26px sans-serif';ctx.textAlign='center';ctx.fillText(note.txt,W/2,H/3+44);ctx.globalAlpha=1}
+ if(note.t>0){ctx.globalAlpha=Math.min(1,note.t);fit(note.txt,W/2,H/3+44,W-30,26,'#ffd84a','center',1);ctx.globalAlpha=1}
  if(state==='shop'){ctx.fillStyle='#000c';ctx.fillRect(0,0,W,H);drawShop()}
  if(state==='over'){
   ctx.fillStyle='#000b';ctx.fillRect(0,0,W,H);ctx.fillStyle='#fff';ctx.textAlign='center';
   ctx.font='bold 48px sans-serif';ctx.fillText('You were eaten!',W/2,H/2-40);
   ctx.font='22px sans-serif';ctx.fillText('Wave '+wave+'   Score: '+score,W/2,H/2);
-  if(coins>0){ctx.fillStyle='#ffd84a';ctx.fillText('Coins lost: '+coins+' (deposit in the Safe to keep them!)',W/2,H/2+32)}
+  if(coins>0){ctx.fillStyle='#ffd400';ctx.fillText('Coins lost: '+coins+' (deposit in the Safe to keep them!)',W/2,H/2+32)}
   ctx.fillStyle='#fff';ctx.fillText('Tap or press Enter to continue',W/2,H/2+68)}}
 
 let last=performance.now();
